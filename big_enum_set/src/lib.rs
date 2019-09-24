@@ -213,7 +213,7 @@ pub struct BigEnumSet<T : BigEnumSetType> {
     #[doc(hidden)]
     /// This is public due to the [`big_enum_set!`] macro.
     /// This is **NOT** public API and may change at any time.
-    pub __enumset_underlying: T::Repr
+    pub __repr: T::Repr
 }
 impl <T : BigEnumSetType> BigEnumSet<T> {
     fn mask(bit: u8) -> T::Repr {
@@ -221,7 +221,7 @@ impl <T : BigEnumSetType> BigEnumSet<T> {
     }
     fn has_bit(&self, bit: u8) -> bool {
         let mask = Self::mask(bit);
-        self.__enumset_underlying & mask == mask
+        self.__repr & mask == mask
     }
     fn partial_bits(bits: u8) -> T::Repr {
         T::Repr::one().checked_shl(bits.into())
@@ -236,12 +236,12 @@ impl <T : BigEnumSetType> BigEnumSet<T> {
 
     /// Returns an empty set.
     pub fn new() -> Self {
-        BigEnumSet { __enumset_underlying: T::Repr::zero() }
+        BigEnumSet { __repr: T::Repr::zero() }
     }
 
     /// Returns a set containing a single value.
     pub fn only(t: T) -> Self {
-        BigEnumSet { __enumset_underlying: Self::mask(t.enum_into_u8()) }
+        BigEnumSet { __repr: Self::mask(t.enum_into_u8()) }
     }
 
     /// Returns an empty set.
@@ -250,7 +250,7 @@ impl <T : BigEnumSetType> BigEnumSet<T> {
     }
     /// Returns a set with all bits set.
     pub fn all() -> Self {
-        BigEnumSet { __enumset_underlying: Self::all_bits() }
+        BigEnumSet { __repr: Self::all_bits() }
     }
 
     /// Total number of bits this enum set uses. Note that the actual amount of space used is
@@ -272,7 +272,7 @@ impl <T : BigEnumSetType> BigEnumSet<T> {
 
     /// Returns the raw bits of this set
     pub fn to_bits(&self) -> u128 {
-        self.__enumset_underlying.to_u128()
+        self.__repr.to_u128()
             .expect("Impossible: Bits cannot be to converted into i128?")
     }
 
@@ -283,22 +283,22 @@ impl <T : BigEnumSetType> BigEnumSet<T> {
     pub fn from_bits(bits: u128) -> Self {
         assert!((bits & !Self::all().to_bits()) == 0, "Bits not valid for the enum were set.");
         BigEnumSet {
-            __enumset_underlying: T::Repr::from_u128(bits)
+            __repr: T::Repr::from_u128(bits)
                 .expect("Impossible: Valid bits too large to fit in repr?")
         }
     }
 
     /// Returns the number of values in this set.
     pub fn len(&self) -> usize {
-        self.__enumset_underlying.count_ones() as usize
+        self.__repr.count_ones() as usize
     }
     /// Checks if the set is empty.
     pub fn is_empty(&self) -> bool {
-        self.__enumset_underlying.is_zero()
+        self.__repr.is_zero()
     }
     /// Removes all elements from the set.
     pub fn clear(&mut self) {
-        self.__enumset_underlying = T::Repr::zero()
+        self.__repr = T::Repr::zero()
     }
 
     /// Checks if this set shares no elements with another.
@@ -307,7 +307,7 @@ impl <T : BigEnumSetType> BigEnumSet<T> {
     }
     /// Checks if all elements in another set are in this set.
     pub fn is_superset(&self, other: Self) -> bool {
-        (*self & other).__enumset_underlying == other.__enumset_underlying
+        (*self & other).__repr == other.__repr
     }
     /// Checks if all elements of this set are in another set.
     pub fn is_subset(&self, other: Self) -> bool {
@@ -316,23 +316,23 @@ impl <T : BigEnumSetType> BigEnumSet<T> {
 
     /// Returns a set containing the union of all elements in both sets.
     pub fn union(&self, other: Self) -> Self {
-        BigEnumSet { __enumset_underlying: self.__enumset_underlying | other.__enumset_underlying }
+        BigEnumSet { __repr: self.__repr | other.__repr }
     }
     /// Returns a set containing all elements in common with another set.
     pub fn intersection(&self, other: Self) -> Self {
-        BigEnumSet { __enumset_underlying: self.__enumset_underlying & other.__enumset_underlying }
+        BigEnumSet { __repr: self.__repr & other.__repr }
     }
     /// Returns a set with all elements of the other set removed.
     pub fn difference(&self, other: Self) -> Self {
-        BigEnumSet { __enumset_underlying: self.__enumset_underlying & !other.__enumset_underlying }
+        BigEnumSet { __repr: self.__repr & !other.__repr }
     }
     /// Returns a set with all elements not contained in both sets.
     pub fn symmetrical_difference(&self, other: Self) -> Self {
-        BigEnumSet { __enumset_underlying: self.__enumset_underlying ^ other.__enumset_underlying }
+        BigEnumSet { __repr: self.__repr ^ other.__repr }
     }
     /// Returns a set containing all elements not in this set.
     pub fn complement(&self) -> Self {
-        BigEnumSet { __enumset_underlying: !self.__enumset_underlying & Self::all_bits() }
+        BigEnumSet { __repr: !self.__repr & Self::all_bits() }
     }
 
     /// Checks whether this set contains a value.
@@ -343,23 +343,23 @@ impl <T : BigEnumSetType> BigEnumSet<T> {
     /// Adds a value to this set.
     pub fn insert(&mut self, value: T) -> bool {
         let contains = self.contains(value);
-        self.__enumset_underlying = self.__enumset_underlying | Self::mask(value.enum_into_u8());
+        self.__repr = self.__repr | Self::mask(value.enum_into_u8());
         contains
     }
     /// Removes a value from this set.
     pub fn remove(&mut self, value: T) -> bool {
         let contains = self.contains(value);
-        self.__enumset_underlying = self.__enumset_underlying & !Self::mask(value.enum_into_u8());
+        self.__repr = self.__repr & !Self::mask(value.enum_into_u8());
         contains
     }
 
     /// Adds all elements in another set to this one.
     pub fn insert_all(&mut self, other: Self) {
-        self.__enumset_underlying = self.__enumset_underlying | other.__enumset_underlying
+        self.__repr = self.__repr | other.__repr
     }
     /// Removes all values in another set from this one.
     pub fn remove_all(&mut self, other: Self) {
-        self.__enumset_underlying = self.__enumset_underlying & !other.__enumset_underlying
+        self.__repr = self.__repr & !other.__repr
     }
 
     /// Creates an iterator over the values in this set.
@@ -445,7 +445,7 @@ impl <T : BigEnumSetType> From<T> for BigEnumSet<T> {
 
 impl <T : BigEnumSetType> PartialEq<T> for BigEnumSet<T> {
     fn eq(&self, other: &T) -> bool {
-        self.__enumset_underlying == BigEnumSet::<T>::mask(other.enum_into_u8())
+        self.__repr == BigEnumSet::<T>::mask(other.enum_into_u8())
     }
 }
 impl <T : BigEnumSetType + Debug> Debug for BigEnumSet<T> {
@@ -464,17 +464,17 @@ impl <T : BigEnumSetType + Debug> Debug for BigEnumSet<T> {
 
 impl <T: BigEnumSetType> Hash for BigEnumSet<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.__enumset_underlying.hash(state)
+        self.__repr.hash(state)
     }
 }
 impl <T: BigEnumSetType> PartialOrd for BigEnumSet<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.__enumset_underlying.partial_cmp(&other.__enumset_underlying)
+        self.__repr.partial_cmp(&other.__repr)
     }
 }
 impl <T: BigEnumSetType> Ord for BigEnumSet<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.__enumset_underlying.cmp(&other.__enumset_underlying)
+        self.__repr.cmp(&other.__repr)
     }
 }
 
@@ -510,7 +510,7 @@ impl <T : BigEnumSetType> Iterator for EnumSetIter<T> {
     }
     fn size_hint(&self) -> (usize, Option<usize>) {
         let left_mask = BigEnumSet::<T>::partial_bits(self.1);
-        let left = (self.0.__enumset_underlying & left_mask).count_ones() as usize;
+        let left = (self.0.__repr & left_mask).count_ones() as usize;
         (left, Some(left))
     }
 }
@@ -540,13 +540,13 @@ impl <T : BigEnumSetType> Iterator for EnumSetIter<T> {
 #[macro_export]
 macro_rules! big_enum_set {
     () => {
-        $crate::BigEnumSet { __enumset_underlying: 0 }
+        $crate::BigEnumSet { __repr: 0 }
     };
     ($($value:path)|* $(|)*) => {
         $crate::internal::EnumSetSameTypeHack {
             unified: &[$($value,)*],
             enum_set: $crate::BigEnumSet {
-                __enumset_underlying: 0 $(| (1 << ($value as u8)))*
+                __repr: 0 $(| (1 << ($value as u8)))*
             },
         }.enum_set
     };
