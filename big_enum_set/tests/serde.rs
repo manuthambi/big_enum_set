@@ -1,24 +1,24 @@
 #![cfg(feature = "serde")]
 #![allow(dead_code)]
 
-use enumset::*;
+use big_enum_set::*;
 use serde_derive::*;
 
-#[derive(Serialize, Deserialize, EnumSetType, Debug)]
-#[enumset(serialize_as_list)]
+#[derive(Serialize, Deserialize, BigEnumSetType, Debug)]
+#[big_enum_set(serialize_as_list)]
 #[serde(crate="serde2")]
 pub enum ListEnum {
     A, B, C, D, E, F, G, H,
 }
 
-#[derive(EnumSetType, Debug)]
-#[enumset(serialize_repr = "u128")]
+#[derive(BigEnumSetType, Debug)]
+#[big_enum_set(serialize_repr = "u128")]
 pub enum ReprEnum {
     A, B, C, D, E, F, G, H,
 }
 
-#[derive(EnumSetType, Debug)]
-#[enumset(serialize_repr = "u128", serialize_deny_unknown)]
+#[derive(BigEnumSetType, Debug)]
+#[big_enum_set(serialize_repr = "u128", serialize_deny_unknown)]
 pub enum DenyUnknownEnum {
     A, B, C, D, E, F, G, H,
 }
@@ -29,7 +29,7 @@ macro_rules! serde_test_simple {
         fn serialize_deserialize_test_bincode() {
             let value = $e::A | $e::C | $e::D | $e::F | $e::E | $e::G;
             let serialized = bincode::serialize(&value).unwrap();
-            let deserialized = bincode::deserialize::<EnumSet<$e>>(&serialized).unwrap();
+            let deserialized = bincode::deserialize::<BigEnumSet<$e>>(&serialized).unwrap();
             assert_eq!(value, deserialized);
             if $ser_size != !0 {
                 assert_eq!(serialized.len(), $ser_size);
@@ -40,7 +40,7 @@ macro_rules! serde_test_simple {
         fn serialize_deserialize_test_json() {
             let value = $e::A | $e::C | $e::D | $e::F | $e::E | $e::G;
             let serialized = serde_json::to_string(&value).unwrap();
-            let deserialized = serde_json::from_str::<EnumSet<$e>>(&serialized).unwrap();
+            let deserialized = serde_json::from_str::<BigEnumSet<$e>>(&serialized).unwrap();
             assert_eq!(value, deserialized);
         }
     }
@@ -52,8 +52,8 @@ macro_rules! serde_test {
         #[test]
         fn deserialize_all_test() {
             let serialized = bincode::serialize(&!0u128).unwrap();
-            let deserialized = bincode::deserialize::<EnumSet<$e>>(&serialized).unwrap();
-            assert_eq!(EnumSet::<$e>::all(), deserialized);
+            let deserialized = bincode::deserialize::<BigEnumSet<$e>>(&serialized).unwrap();
+            assert_eq!(BigEnumSet::<$e>::all(), deserialized);
         }
     }
 }
@@ -64,16 +64,16 @@ macro_rules! tests {
 #[test]
 fn test_deny_unknown() {
     let serialized = bincode::serialize(&!0u128).unwrap();
-    let deserialized = bincode::deserialize::<EnumSet<DenyUnknownEnum>>(&serialized);
+    let deserialized = bincode::deserialize::<BigEnumSet<DenyUnknownEnum>>(&serialized);
     assert!(deserialized.is_err());
 }
 
 #[test]
 fn test_json_reprs() {
     assert_eq!(ListEnum::A | ListEnum::C | ListEnum::F,
-               serde_json::from_str::<EnumSet<ListEnum>>(r#"["A","C","F"]"#).unwrap());
+               serde_json::from_str::<BigEnumSet<ListEnum>>(r#"["A","C","F"]"#).unwrap());
     assert_eq!(ReprEnum::A | ReprEnum::C | ReprEnum::D,
-               serde_json::from_str::<EnumSet<ReprEnum>>("13").unwrap());
+               serde_json::from_str::<BigEnumSet<ReprEnum>>("13").unwrap());
     assert_eq!(r#"["A","C","F"]"#,
                serde_json::to_string(&(ListEnum::A | ListEnum::C | ListEnum::F)).unwrap());
     assert_eq!("13",

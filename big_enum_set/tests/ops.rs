@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 
-use enumset::*;
+use big_enum_set::*;
 
-#[derive(EnumSetType, Debug)]
+#[derive(BigEnumSetType, Debug)]
 pub enum SmallEnum {
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
 }
-#[derive(EnumSetType, Debug)]
+#[derive(BigEnumSetType, Debug)]
 pub enum LargeEnum {
     _00,  _01,  _02,  _03,  _04,  _05,  _06,  _07,
     _10,  _11,  _12,  _13,  _14,  _15,  _16,  _17,
@@ -18,11 +18,11 @@ pub enum LargeEnum {
     _70,  _71,  _72,  _73,  _74,  _75,  _76,  _77,
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
 }
-#[derive(EnumSetType, Debug)]
+#[derive(BigEnumSetType, Debug)]
 pub enum Enum8 {
     A, B, C, D, E, F, G, H,
 }
-#[derive(EnumSetType, Debug)]
+#[derive(BigEnumSetType, Debug)]
 pub enum Enum128 {
     A, B, C, D, E, F, G, H, _8, _9, _10, _11, _12, _13, _14, _15,
     _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31,
@@ -34,7 +34,7 @@ pub enum Enum128 {
     _110, _111, _112, _113, _114, _115, _116, _117, _118, _119, _120, _121, _122,
     _123, _124,  _125, _126, _127,
 }
-#[derive(EnumSetType, Debug)]
+#[derive(BigEnumSetType, Debug)]
 pub enum SparseEnum {
     A = 10, B = 20, C = 30, D = 40, E = 50, F = 60, G = 70, H = 80,
 }
@@ -43,8 +43,8 @@ macro_rules! test_variants {
     ($enum_name:ident $all_empty_test:ident $($variant:ident,)*) => {
         #[test]
         fn $all_empty_test() {
-            let all = EnumSet::<$enum_name>::all();
-            let empty = EnumSet::<$enum_name>::empty();
+            let all = BigEnumSet::<$enum_name>::all();
+            let empty = BigEnumSet::<$enum_name>::empty();
 
             $(
                 assert!(!empty.contains($enum_name::$variant));
@@ -73,8 +73,8 @@ test_variants! { SparseEnum sparse_enum_all_empty
 
 macro_rules! test_enum {
     ($e:ident, $mem_size:expr) => {
-        const CONST_SET: EnumSet<$e> = enum_set!($e::A | $e::C);
-        const EMPTY_SET: EnumSet<$e> = enum_set!();
+        const CONST_SET: BigEnumSet<$e> = big_enum_set!($e::A | $e::C);
+        const EMPTY_SET: BigEnumSet<$e> = big_enum_set!();
         #[test]
         fn const_set() {
             assert_eq!(CONST_SET.len(), 2);
@@ -85,7 +85,7 @@ macro_rules! test_enum {
 
         #[test]
         fn basic_add_remove() {
-            let mut set = EnumSet::new();
+            let mut set = BigEnumSet::new();
             set.insert($e::A);
             set.insert($e::B);
             set.insert($e::C);
@@ -105,23 +105,23 @@ macro_rules! test_enum {
 
         #[test]
         fn empty_is_empty() {
-            assert_eq!(EnumSet::<$e>::empty().len(), 0)
+            assert_eq!(BigEnumSet::<$e>::empty().len(), 0)
         }
 
         #[test]
         fn all_len() {
-            assert_eq!(EnumSet::<$e>::all().len(), EnumSet::<$e>::variant_count() as usize)
+            assert_eq!(BigEnumSet::<$e>::all().len(), BigEnumSet::<$e>::variant_count() as usize)
         }
 
         #[test]
         fn basic_iter_test() {
-            let mut set = EnumSet::new();
+            let mut set = BigEnumSet::new();
             set.insert($e::A);
             set.insert($e::B);
             set.insert($e::C);
             set.insert($e::E);
 
-            let mut set_2 = EnumSet::new();
+            let mut set_2 = BigEnumSet::new();
             let vec: Vec<$e> = set.iter().collect();
             for val in vec {
                 assert!(!set_2.contains(val));
@@ -129,7 +129,7 @@ macro_rules! test_enum {
             }
             assert_eq!(set, set_2);
 
-            let mut set_3 = EnumSet::new();
+            let mut set_3 = BigEnumSet::new();
             for val in set {
                 assert!(!set_3.contains(val));
                 set_3.insert(val);
@@ -155,22 +155,22 @@ macro_rules! test_enum {
 
         #[test]
         fn debug_impl() {
-            assert_eq!(format!("{:?}", $e::A | $e::B | $e::D), "EnumSet(A | B | D)");
+            assert_eq!(format!("{:?}", $e::A | $e::B | $e::D), "BigEnumSet(A | B | D)");
         }
 
         #[test]
         fn to_from_bits() {
             let value = $e::A | $e::C | $e::D | $e::F | $e::E | $e::G;
-            assert_eq!(EnumSet::from_bits(value.to_bits()), value);
+            assert_eq!(BigEnumSet::from_bits(value.to_bits()), value);
         }
 
         #[test]
         #[should_panic]
         fn too_many_bits() {
-            if EnumSet::<$e>::variant_count() == 128 {
+            if BigEnumSet::<$e>::variant_count() == 128 {
                 panic!("(test skipped)")
             }
-            EnumSet::<$e>::from_bits(!0);
+            BigEnumSet::<$e>::from_bits(!0);
         }
 
         #[test]
@@ -183,7 +183,7 @@ macro_rules! test_enum {
 
         #[test]
         fn check_size() {
-            assert_eq!(::std::mem::size_of::<EnumSet<$e>>(), $mem_size);
+            assert_eq!(::std::mem::size_of::<BigEnumSet<$e>>(), $mem_size);
         }
     }
 }

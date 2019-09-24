@@ -25,10 +25,10 @@ fn error(_: Span, data: &str) -> TokenStream {
 fn enum_set_type_impl(
     name: &Ident, all_variants: u128, repr: Ident, attrs: EnumsetAttrs,
 ) -> SynTokenStream {
-    let typed_enumset = quote!(::enumset::EnumSet<#name>);
-    let core = quote!(::enumset::internal::core_export);
+    let typed_big_enum_set = quote!(::big_enum_set::BigEnumSet<#name>);
+    let core = quote!(::big_enum_set::internal::core_export);
     #[cfg(feature = "serde")]
-    let serde = quote!(::enumset::internal::serde);
+    let serde = quote!(::big_enum_set::internal::serde);
 
     // proc_macro2 does not support creating u128 literals.
     let all_variants = Literal::u128_unsuffixed(all_variants);
@@ -37,39 +37,39 @@ fn enum_set_type_impl(
         quote! {}
     } else {
         quote! {
-            impl <O : Into<#typed_enumset>> #core::ops::Sub<O> for #name {
-                type Output = #typed_enumset;
+            impl <O : Into<#typed_big_enum_set>> #core::ops::Sub<O> for #name {
+                type Output = #typed_big_enum_set;
                 fn sub(self, other: O) -> Self::Output {
-                    ::enumset::EnumSet::only(self) - other.into()
+                    ::big_enum_set::BigEnumSet::only(self) - other.into()
                 }
             }
-            impl <O : Into<#typed_enumset>> #core::ops::BitAnd<O> for #name {
-                type Output = #typed_enumset;
+            impl <O : Into<#typed_big_enum_set>> #core::ops::BitAnd<O> for #name {
+                type Output = #typed_big_enum_set;
                 fn bitand(self, other: O) -> Self::Output {
-                    ::enumset::EnumSet::only(self) & other.into()
+                    ::big_enum_set::BigEnumSet::only(self) & other.into()
                 }
             }
-            impl <O : Into<#typed_enumset>> #core::ops::BitOr<O> for #name {
-                type Output = #typed_enumset;
+            impl <O : Into<#typed_big_enum_set>> #core::ops::BitOr<O> for #name {
+                type Output = #typed_big_enum_set;
                 fn bitor(self, other: O) -> Self::Output {
-                    ::enumset::EnumSet::only(self) | other.into()
+                    ::big_enum_set::BigEnumSet::only(self) | other.into()
                 }
             }
-            impl <O : Into<#typed_enumset>> #core::ops::BitXor<O> for #name {
-                type Output = #typed_enumset;
+            impl <O : Into<#typed_big_enum_set>> #core::ops::BitXor<O> for #name {
+                type Output = #typed_big_enum_set;
                 fn bitxor(self, other: O) -> Self::Output {
-                    ::enumset::EnumSet::only(self) ^ other.into()
+                    ::big_enum_set::BigEnumSet::only(self) ^ other.into()
                 }
             }
             impl #core::ops::Not for #name {
-                type Output = #typed_enumset;
+                type Output = #typed_big_enum_set;
                 fn not(self) -> Self::Output {
-                    !::enumset::EnumSet::only(self)
+                    !::big_enum_set::BigEnumSet::only(self)
                 }
             }
-            impl #core::cmp::PartialEq<#typed_enumset> for #name {
-                fn eq(&self, other: &#typed_enumset) -> bool {
-                    ::enumset::EnumSet::only(*self) == *other
+            impl #core::cmp::PartialEq<#typed_big_enum_set> for #name {
+                fn eq(&self, other: &#typed_big_enum_set) -> bool {
+                    ::big_enum_set::BigEnumSet::only(*self) == *other
                 }
             }
         }
@@ -80,7 +80,7 @@ fn enum_set_type_impl(
         let expecting_str = format!("a list of {}", name);
         quote! {
             fn serialize<S: #serde::Serializer>(
-                set: ::enumset::EnumSet<#name>, ser: S,
+                set: ::big_enum_set::BigEnumSet<#name>, ser: S,
             ) -> #core::result::Result<S::Ok, S::Error> {
                 use #serde::ser::SerializeSeq;
                 let mut seq = ser.serialize_seq(#core::prelude::v1::Some(set.len()))?;
@@ -91,10 +91,10 @@ fn enum_set_type_impl(
             }
             fn deserialize<'de, D: #serde::Deserializer<'de>>(
                 de: D,
-            ) -> #core::result::Result<::enumset::EnumSet<#name>, D::Error> {
+            ) -> #core::result::Result<::big_enum_set::BigEnumSet<#name>, D::Error> {
                 struct Visitor;
                 impl <'de> #serde::de::Visitor<'de> for Visitor {
-                    type Value = ::enumset::EnumSet<#name>;
+                    type Value = ::big_enum_set::BigEnumSet<#name>;
                     fn expecting(
                         &self, formatter: &mut #core::fmt::Formatter,
                     ) -> #core::fmt::Result {
@@ -103,7 +103,7 @@ fn enum_set_type_impl(
                     fn visit_seq<A>(
                         mut self, mut seq: A,
                     ) -> Result<Self::Value, A::Error> where A: #serde::de::SeqAccess<'de> {
-                        let mut accum = ::enumset::EnumSet::<#name>::new();
+                        let mut accum = ::big_enum_set::BigEnumSet::<#name>::new();
                         while let #core::prelude::v1::Some(val) = seq.next_element::<#name>()? {
                             accum |= val;
                         }
@@ -123,7 +123,7 @@ fn enum_set_type_impl(
                     use #serde::de::Error;
                     let unexpected = #serde::de::Unexpected::Unsigned(value as u64);
                     return #core::prelude::v1::Err(
-                        D::Error::custom("enumset contains unknown bits")
+                        D::Error::custom("big_enum_set contains unknown bits")
                     )
                 }
             }
@@ -132,19 +132,19 @@ fn enum_set_type_impl(
         };
         quote! {
             fn serialize<S: #serde::Serializer>(
-                set: ::enumset::EnumSet<#name>, ser: S,
+                set: ::big_enum_set::BigEnumSet<#name>, ser: S,
             ) -> #core::result::Result<S::Ok, S::Error> {
                 use #serde::Serialize;
-                #serialize_repr::serialize(&(set.__enumset_underlying as #serialize_repr), ser)
+                #serialize_repr::serialize(&(set.__big_enum_set_underlying as #serialize_repr), ser)
             }
             fn deserialize<'de, D: #serde::Deserializer<'de>>(
                 de: D,
-            ) -> #core::result::Result<::enumset::EnumSet<#name>, D::Error> {
+            ) -> #core::result::Result<::big_enum_set::BigEnumSet<#name>, D::Error> {
                 use #serde::Deserialize;
                 let value = #serialize_repr::deserialize(de)?;
                 #check_unknown
-                #core::prelude::v1::Ok(::enumset::EnumSet {
-                    __enumset_underlying: (value & #all_variants) as #repr,
+                #core::prelude::v1::Ok(::big_enum_set::BigEnumSet {
+                    __big_enum_set_underlying: (value & #all_variants) as #repr,
                 })
             }
         }
@@ -154,7 +154,7 @@ fn enum_set_type_impl(
     let serde_ops = quote! { };
 
     quote! {
-        unsafe impl ::enumset::internal::EnumSetTypePrivate for #name {
+        unsafe impl ::big_enum_set::internal::EnumSetTypePrivate for #name {
             type Repr = #repr;
             const ALL_BITS: Self::Repr = #all_variants;
 
@@ -168,7 +168,7 @@ fn enum_set_type_impl(
             #serde_ops
         }
 
-        unsafe impl ::enumset::EnumSetType for #name { }
+        unsafe impl ::big_enum_set::BigEnumSetType for #name { }
 
         impl #core::cmp::PartialEq for #name {
             fn eq(&self, other: &Self) -> bool {
@@ -188,7 +188,7 @@ fn enum_set_type_impl(
 }
 
 #[derive(FromDeriveInput, Default)]
-#[darling(attributes(enumset), default)]
+#[darling(attributes(big_enum_set), default)]
 struct EnumsetAttrs {
     no_ops: bool,
     serialize_as_list: bool,
@@ -197,13 +197,13 @@ struct EnumsetAttrs {
     serialize_repr: Option<String>,
 }
 
-#[proc_macro_derive(EnumSetType, attributes(enumset))]
+#[proc_macro_derive(BigEnumSetType, attributes(big_enum_set))]
 pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
     let input: DeriveInput = parse_macro_input!(input);
     if let Data::Enum(data) = &input.data {
         if !input.generics.params.is_empty() {
             error(input.generics.span(),
-                  "`#[derive(EnumSetType)]` cannot be used on enums with type parameters.")
+                  "`#[derive(BigEnumSetType)]` cannot be used on enums with type parameters.")
         } else {
             let mut all_variants = 0u128;
             let mut max_variant = 0;
@@ -223,9 +223,9 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
 
                     if current_variant >= 128 {
                         let message = if has_manual_discriminant {
-                            "`#[derive(EnumSetType)]` only supports enum discriminants up to 127."
+                            "`#[derive(BigEnumSetType)]` only supports enum discriminants up to 127."
                         } else {
-                            "`#[derive(EnumSetType)]` only supports enums up to 128 variants."
+                            "`#[derive(BigEnumSetType)]` only supports enums up to 128 variants."
                         };
                         return error(variant.span(), message)
                     }
@@ -242,7 +242,7 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
                     current_variant += 1;
                 } else {
                     return error(variant.span(),
-                                 "`#[derive(EnumSetType)]` can only be used on C-like enums.")
+                                 "`#[derive(BigEnumSetType)]` can only be used on C-like enums.")
                 }
             }
 
@@ -289,6 +289,6 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
             enum_set_type_impl(&input.ident, all_variants, repr, attrs).into()
         }
     } else {
-        error(input.span(), "`#[derive(EnumSetType)]` may only be used on enums")
+        error(input.span(), "`#[derive(BigEnumSetType)]` may only be used on enums")
     }
 }

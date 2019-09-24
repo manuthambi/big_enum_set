@@ -1,13 +1,13 @@
-# enumset
+# big_enum_set
 
-[![Latest Version](https://img.shields.io/crates/v/enumset.svg)](https://crates.io/crates/enumset)
+[![Latest Version](https://img.shields.io/crates/v/big_enum_set.svg)](https://crates.io/crates/big_enum_set)
 ![Requires rustc 1.31+](https://img.shields.io/badge/rustc-1.31+-red.svg)
-[![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/enumset)
+[![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/big_enum_set)
 
-A library for defining enums that can be used in compact bit sets.
-It supports enums up to 128 variants, and has a macro to use these sets in constants.
+A library for for creating sets of enums which contain a large number of variants. The set is implemented
+internally as a bitset stored in an array of `usize`.
 
-See [the documentation](https://docs.rs/enumset) for more information.
+See [the documentation](https://docs.rs/big_enum_set) for more information.
 
 # License
 
@@ -23,5 +23,5 @@ at your option.
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in enumset by you, as defined in the Apache-2.0 license, shall be
+for inclusion in big_enum_set by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.

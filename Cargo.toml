@@ -1,5 +1,5 @@
 [workspace]
 members = [
-    "enumset",
-    "enumset_derive",
+    "big_enum_set",
+    "big_enum_set_derive",
 ]
