@@ -38,6 +38,10 @@ pub enum Enum128 {
 pub enum SparseEnum {
     A = 10, B = 20, C = 30, D = 40, E = 50, F = 60, G = 70, H = 80,
 }
+#[derive(BigEnumSetType, Debug)]
+pub enum LargeSparseEnum {
+    A = 10, B = 20, C = 30, D = 40, E = 50, F = 60, G = 70, H = 80, I = 128, J = 255,
+}
 
 macro_rules! test_variants {
     ($enum_name:ident $all_empty_test:ident $($variant:ident,)*) => {
@@ -137,6 +141,25 @@ macro_rules! test_enum {
             assert_eq!(set, set_3);
         }
 
+        fn check_iter_size_hint(set: BigEnumSet<$e>) {
+            let count = set.len();
+            let mut itr = set.iter();
+            for idx in 0 .. count {
+                assert_eq!(itr.size_hint(), (count-idx, Some(count-idx)));
+                assert!(itr.next().is_some());
+            }
+            assert_eq!(itr.size_hint(), (0, Some(0)));
+        }
+        #[test]
+        fn test_iter_size_hint() {
+            check_iter_size_hint(BigEnumSet::<$e>::all());
+            let mut set = BigEnumSet::new();
+            set.insert($e::A);
+            set.insert($e::C);
+            set.insert($e::E);
+            check_iter_size_hint(set);
+        }
+
         #[test]
         fn basic_ops_test() {
             assert_eq!(($e::A | $e::B) | ($e::B | $e::C), $e::A | $e::B | $e::C);
@@ -167,10 +190,14 @@ macro_rules! test_enum {
         #[test]
         #[should_panic]
         fn too_many_bits() {
-            if BigEnumSet::<$e>::variant_count() == 128 {
+            if BigEnumSet::<$e>::variant_count() == $mem_size * 8 {
                 panic!("(test skipped)")
             }
-            BigEnumSet::<$e>::from_bits(!0);
+            let mut bits = [0usize; $mem_size / core::mem::size_of::<usize>()];
+            for w in &mut bits {
+                *w = !0;
+            }
+            BigEnumSet::<$e>::from_bits(&bits);
         }
 
         #[test]
@@ -183,7 +210,10 @@ macro_rules! test_enum {
 
         #[test]
         fn check_size() {
-            assert_eq!(::std::mem::size_of::<BigEnumSet<$e>>(), $mem_size);
+            use core::mem::size_of;
+            let usize_len = size_of::<usize>();
+            let size = ($mem_size + usize_len-1) / usize_len * usize_len; // round up
+            assert_eq!(size_of::<BigEnumSet<$e>>(), size);
         }
     }
 }
@@ -196,3 +226,4 @@ tests!(large_enum, test_enum!(LargeEnum, 16));
 tests!(enum8, test_enum!(Enum8, 1));
 tests!(enum128, test_enum!(Enum128, 16));
 tests!(sparse_enum, test_enum!(SparseEnum, 16));
+tests!(large_sparse_enum, test_enum!(LargeSparseEnum, 32));

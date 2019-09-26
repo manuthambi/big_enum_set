@@ -5,7 +5,7 @@ authors = ["Manu Thambi <manu@meshcapital.com>", "Lymia Aluysia <lymia@lymiahugs
 edition = "2018"
 
 description = "A library for creating sets of enums with a large number of variants."
-keywords = ["enum", "bitset", "set"]
+keywords = ["enum", "bitset", "set", "enumset"]
 categories = ["data-structures"]
 
 documentation = "https://docs.rs/big_enum_set/"
@@ -22,6 +22,7 @@ serde = ["serde2", "big_enum_set_derive/serde"]
 big_enum_set_derive = { version = "0.1.0", path = "../big_enum_set_derive" }
 num-traits = { version = "0.2", default-features = false }
 serde2 = { package = "serde", version = "1.0.91", default-features = false, optional = true }
+static_assertions = "0.3.4"
 
 [dev-dependencies]
 bincode = { version = "1.0", features = ["i128"] }
