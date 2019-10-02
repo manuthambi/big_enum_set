@@ -1,6 +1,37 @@
 #![allow(dead_code)]
 
 use big_enum_set::*;
+use core::mem;
+
+#[derive(BigEnumSetType, Debug)]
+pub enum EmptyEnum { }
+
+#[test]
+fn test_empty_enum() {
+    let set = BigEnumSet::<EmptyEnum>::new();
+    assert_eq!(set.len(), 0);
+    assert!(set.is_empty());
+    assert_eq!(mem::size_of::<BigEnumSet<EmptyEnum>>(), 0);
+}
+
+#[derive(BigEnumSetType, Debug)]
+pub enum Enum1 {
+    A,
+}
+
+#[test]
+fn test_enum1() {
+    let mut set = BigEnumSet::new();
+    assert_eq!(set.len(), 0);
+    assert!(set.is_empty());
+    assert!(!set.contains(Enum1::A));
+    set.insert(Enum1::A);
+    assert_eq!(set.len(), 1);
+    assert!(!set.is_empty());
+    assert!(set.contains(Enum1::A));
+    assert_eq!(Enum1::A, Enum1::A);
+    assert_eq!(mem::size_of::<BigEnumSet<Enum1>>(), mem::size_of::<usize>());
+}
 
 #[derive(BigEnumSetType, Debug)]
 pub enum SmallEnum {
@@ -40,7 +71,7 @@ pub enum SparseEnum {
 }
 #[derive(BigEnumSetType, Debug)]
 pub enum LargeSparseEnum {
-    A = 10, B = 20, C = 30, D = 40, E = 50, F = 60, G = 70, H = 80, I = 128, J = 255,
+    A = 0, B = 20, C = 128, D = 140, E = 150, F = 160, G = 170, H = 180, I = 190, J = 255,
 }
 
 macro_rules! test_variants {
@@ -74,6 +105,9 @@ test_variants! { LargeEnum large_enum_all_empty
 test_variants! { SparseEnum sparse_enum_all_empty
     A, B, C, D, E, F, G,
 }
+test_variants! { LargeSparseEnum large_sparse_enum_all_empty
+    A, B, C, D, E, F, G, H, I, J,
+}
 
 macro_rules! test_enum {
     ($e:ident, $mem_size:expr) => {
@@ -85,6 +119,16 @@ macro_rules! test_enum {
             assert!(CONST_SET.contains($e::A));
             assert!(CONST_SET.contains($e::C));
             assert!(EMPTY_SET.is_empty());
+        }
+
+        #[test]
+        fn enum_ops() {
+            for e in BigEnumSet::<$e>::all().iter() {
+                assert!(e == e);
+                assert_eq!(e.clone(), e);
+            }
+            assert!($e::A != $e::B);
+            assert!($e::E != $e::F);
         }
 
         #[test]
@@ -210,10 +254,9 @@ macro_rules! test_enum {
 
         #[test]
         fn check_size() {
-            use core::mem::size_of;
-            let usize_len = size_of::<usize>();
+            let usize_len = mem::size_of::<usize>();
             let size = ($mem_size + usize_len-1) / usize_len * usize_len; // round up
-            assert_eq!(size_of::<BigEnumSet<$e>>(), size);
+            assert_eq!(mem::size_of::<BigEnumSet<$e>>(), size);
         }
     }
 }

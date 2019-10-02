@@ -30,10 +30,14 @@ fn error(_: Span, data: &str) -> TokenStream {
 fn enum_set_type_impl(
     name: &Ident,
     all_variants: &BitSet<usize>,
-    byte_enum: bool,
     max_variant: usize,
+    max_variant_ident: Option<Ident>,
     attrs: EnumsetAttrs,
 ) -> SynTokenStream {
+    let is_byte_enum = max_variant <= usize::from(core::u8::MAX);
+    let is_uninhabited = all_variants.is_empty();
+    let is_zst = all_variants.len() == 1;
+
     let typed_big_enum_set = quote!(::big_enum_set::BigEnumSet<#name>);
     let core = quote!(::big_enum_set::internal::core_export);
 
@@ -199,7 +203,11 @@ fn enum_set_type_impl(
     #[cfg(not(feature = "serde"))]
     let serde_ops = quote! {};
 
-    let repr_len = quote!(#max_variant / (#core::mem::size_of::<usize>() * 8) + 1);
+    let repr_len = if is_uninhabited {
+        quote!(0usize)
+    } else {
+        quote!(#max_variant / (#core::mem::size_of::<usize>() * 8) + 1)
+    };
 
     // Compute repr_all seperately like below to allow cross-compiling into a arch with
     // a different pointer width.
@@ -220,7 +228,29 @@ fn enum_set_type_impl(
         #[cfg(not(any(target_pointer_width = "16", target_pointer_width = "32", target_pointer_width = "64")))]
         { core::compile_error!("Invalid target_pointer_width") }
     }};
-    let enum_cast = if byte_enum { quote!(as u8) } else { quote!() };
+
+    let into_impl = if is_uninhabited {
+        quote!(panic!(concat!(stringify!(#name), " is uninhabited.")))
+    } else {
+        quote!(self as u16)
+    };
+
+    let from_impl = if is_uninhabited {
+        quote!(panic!(concat!(stringify!(#name), " is uninhabited.")))
+    } else if is_zst {
+        let variant = max_variant_ident.unwrap();
+        quote!(#name::#variant)
+    } else if is_byte_enum {
+        quote!(#core::mem::transmute(val as u8))
+    } else {
+        quote!(#core::mem::transmute(val))
+    };
+
+    let eq_impl = if is_uninhabited {
+        quote!(panic!(concat!(stringify!(#name), " is uninhabited.")))
+    } else {
+        quote!((*self as u16) == (*other as u16))
+    };
 
     quote! {
         unsafe impl ::big_enum_set::internal::EnumSetTypePrivate for #name {
@@ -230,10 +260,10 @@ fn enum_set_type_impl(
             const REPR_ALL: Self::Repr = #repr_all;
 
             fn enum_into_u16(self) -> u16 {
-                self as u16
+                #into_impl
             }
             unsafe fn enum_from_u16(val: u16) -> Self {
-                #core::mem::transmute(val #enum_cast)
+                #from_impl
             }
 
             #serde_ops
@@ -242,7 +272,7 @@ fn enum_set_type_impl(
 
         impl #core::cmp::PartialEq for #name {
             fn eq(&self, other: &Self) -> bool {
-                (*self as u16) == (*other as u16)
+                #eq_impl
             }
         }
         impl #core::cmp::Eq for #name { }
@@ -281,6 +311,7 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
         } else {
             let mut all_variants = BitSet::default();
             let mut max_variant = 0_usize;
+            let mut max_variant_ident = None;
             let mut current_variant = 0_usize;
 
             for variant in &data.variants {
@@ -310,6 +341,10 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
                     }
 
                     all_variants.insert(current_variant);
+                    if current_variant >= max_variant { // use >= because max_variant is initialized to 0.
+                        max_variant = current_variant;
+                        max_variant_ident = Some(variant.ident.clone());
+                    }
                     max_variant = max_variant.max(current_variant);
                     current_variant += 1;
                 } else {
@@ -318,7 +353,6 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
                 }
             }
 
-            let byte_enum = max_variant <= usize::from(core::u8::MAX);
             let attrs: EnumsetAttrs = match EnumsetAttrs::from_derive_input(&input) {
                 Ok(attrs) => attrs,
                 Err(e) => return e.write_errors().into(),
@@ -330,7 +364,7 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
                 }
             }
 
-            enum_set_type_impl(&input.ident, &all_variants, byte_enum, max_variant, attrs).into()
+            enum_set_type_impl(&input.ident, &all_variants, max_variant, max_variant_ident, attrs).into()
         }
     } else {
         error(input.span(), "`#[derive(BigEnumSetType)]` may only be used on enums")

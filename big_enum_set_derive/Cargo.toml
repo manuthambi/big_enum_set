@@ -6,7 +6,7 @@ edition = "2018"
 
 description = "An internal helper crate for big_enum_set."
 
-documentation = "https://docs.rs/big_enum_set/"
+documentation = "https://docs.rs/big_enum_set_derive/"
 repository = "https://github.com/manuthambi/big_enum_set"
 
 license = "MIT/Apache-2.0"
