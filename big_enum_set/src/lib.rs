@@ -81,6 +81,7 @@ use core::fmt::{Debug, Formatter};
 use core::hash::Hash;
 use core::mem;
 use core::ops::*;
+use core::iter::FromIterator;
 
 use static_assertions::const_assert_eq;
 
@@ -521,6 +522,21 @@ impl<T: BigEnumSetType> Iterator for EnumSetIter<T> {
         (left, Some(left))
     }
 }
+
+impl<T: BigEnumSetType> Extend<T> for BigEnumSet<T> {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        iter.into_iter().for_each(|v| { self.insert(v); });
+    }
+}
+
+impl<T: BigEnumSetType> FromIterator<T> for BigEnumSet<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut set = BigEnumSet::default();
+        set.extend(iter);
+        set
+    }
+}
+
 
 /// Creates a BigEnumSet literal, which can be used in const contexts.
 ///
