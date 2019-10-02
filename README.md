@@ -1,8 +1,9 @@
 # big_enum_set
 
-[![Latest Version](https://img.shields.io/crates/v/big_enum_set.svg)](https://crates.io/crates/big_enum_set)
-![Requires rustc 1.38+](https://img.shields.io/badge/rustc-1.38+-red.svg)
-[![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/big_enum_set)
+[![Crates.io](https://img.shields.io/crates/v/big_enum_set.svg)](https://crates.io/crates/big_enum_set)
+[![Build Status](https://travis-ci.org/manuthambi/big_enum_set.svg?branch=master)](https://travis-ci.org/manuthambi/big_enum_set)
+![Requires rustc 1.38+](https://img.shields.io/badge/rustc-1.38+-blue.svg)
+[![API reference](https://docs.rs/big_enum_set/badge.svg)](https://docs.rs/big_enum_set/)
 
 A library for creating sets of enums with a large number of variants. The set is implemented
 internally as a bitset stored in an array of `usize`.
