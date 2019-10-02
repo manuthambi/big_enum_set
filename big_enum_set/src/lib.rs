@@ -95,9 +95,6 @@ pub mod internal {
         pub set: BigEnumSet<T>,
     }
 
-    /// A reexport of core to allow our macros to be generic to std vs core.
-    pub use ::core as core_export;
-
     /// A reexport of serde so there is no requirement to depend on serde.
     #[cfg(feature = "serde")] pub use serde2 as serde;
 

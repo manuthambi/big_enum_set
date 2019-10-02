@@ -39,7 +39,6 @@ fn enum_set_type_impl(
     let is_zst = all_variants.len() == 1;
 
     let typed_big_enum_set = quote!(::big_enum_set::BigEnumSet<#name>);
-    let core = quote!(::big_enum_set::internal::core_export);
 
     #[cfg(feature = "serde")]
     let serde = quote!(::big_enum_set::internal::serde);
@@ -48,37 +47,37 @@ fn enum_set_type_impl(
         quote! {}
     } else {
         quote! {
-            impl <O : Into<#typed_big_enum_set>> #core::ops::Sub<O> for #name {
+            impl <O : Into<#typed_big_enum_set>> ::core::ops::Sub<O> for #name {
                 type Output = #typed_big_enum_set;
                 fn sub(self, other: O) -> Self::Output {
                     ::big_enum_set::BigEnumSet::only(self) - other.into()
                 }
             }
-            impl <O : Into<#typed_big_enum_set>> #core::ops::BitAnd<O> for #name {
+            impl <O : Into<#typed_big_enum_set>> ::core::ops::BitAnd<O> for #name {
                 type Output = #typed_big_enum_set;
                 fn bitand(self, other: O) -> Self::Output {
                     ::big_enum_set::BigEnumSet::only(self) & other.into()
                 }
             }
-            impl <O : Into<#typed_big_enum_set>> #core::ops::BitOr<O> for #name {
+            impl <O : Into<#typed_big_enum_set>> ::core::ops::BitOr<O> for #name {
                 type Output = #typed_big_enum_set;
                 fn bitor(self, other: O) -> Self::Output {
                     ::big_enum_set::BigEnumSet::only(self) | other.into()
                 }
             }
-            impl <O : Into<#typed_big_enum_set>> #core::ops::BitXor<O> for #name {
+            impl <O : Into<#typed_big_enum_set>> ::core::ops::BitXor<O> for #name {
                 type Output = #typed_big_enum_set;
                 fn bitxor(self, other: O) -> Self::Output {
                     ::big_enum_set::BigEnumSet::only(self) ^ other.into()
                 }
             }
-            impl #core::ops::Not for #name {
+            impl ::core::ops::Not for #name {
                 type Output = #typed_big_enum_set;
                 fn not(self) -> Self::Output {
                     !::big_enum_set::BigEnumSet::only(self)
                 }
             }
-            impl #core::cmp::PartialEq<#typed_big_enum_set> for #name {
+            impl ::core::cmp::PartialEq<#typed_big_enum_set> for #name {
                 fn eq(&self, other: &#typed_big_enum_set) -> bool {
                     ::big_enum_set::BigEnumSet::only(*self) == *other
                 }
@@ -92,9 +91,9 @@ fn enum_set_type_impl(
         quote! {
             fn serialize<S: #serde::Serializer>(
                 set: ::big_enum_set::BigEnumSet<#name>, ser: S,
-            ) -> #core::result::Result<S::Ok, S::Error> {
+            ) -> ::core::result::Result<S::Ok, S::Error> {
                 use #serde::ser::SerializeSeq;
-                let mut seq = ser.serialize_seq(#core::prelude::v1::Some(set.len()))?;
+                let mut seq = ser.serialize_seq(::core::prelude::v1::Some(set.len()))?;
                 for bit in set {
                     seq.serialize_element(&bit)?;
                 }
@@ -102,23 +101,23 @@ fn enum_set_type_impl(
             }
             fn deserialize<'de, D: #serde::Deserializer<'de>>(
                 de: D,
-            ) -> #core::result::Result<::big_enum_set::BigEnumSet<#name>, D::Error> {
+            ) -> ::core::result::Result<::big_enum_set::BigEnumSet<#name>, D::Error> {
                 struct Visitor;
                 impl <'de> #serde::de::Visitor<'de> for Visitor {
                     type Value = ::big_enum_set::BigEnumSet<#name>;
                     fn expecting(
-                        &self, formatter: &mut #core::fmt::Formatter,
-                    ) -> #core::fmt::Result {
+                        &self, formatter: &mut ::core::fmt::Formatter,
+                    ) -> ::core::fmt::Result {
                         write!(formatter, #expecting_str)
                     }
                     fn visit_seq<A>(
                         mut self, mut seq: A,
                     ) -> Result<Self::Value, A::Error> where A: #serde::de::SeqAccess<'de> {
                         let mut accum = ::big_enum_set::BigEnumSet::<#name>::new();
-                        while let #core::prelude::v1::Some(val) = seq.next_element::<#name>()? {
+                        while let ::core::prelude::v1::Some(val) = seq.next_element::<#name>()? {
                             accum |= val;
                         }
-                        #core::prelude::v1::Ok(accum)
+                        ::core::prelude::v1::Ok(accum)
                     }
                 }
                 de.deserialize_seq(Visitor)
@@ -135,7 +134,7 @@ fn enum_set_type_impl(
                 if set.__repr.iter().zip(#enum_type::REPR_ALL.iter()).any(|(&w1, &w2)| w1 & !w2 != 0) ||
                     rem.iter().any(|&b| b != 0) {
                         use #serde::de::Error;
-                        return #core::prelude::v1::Err(
+                        return ::core::prelude::v1::Err(
                             D::Error::custom("BigEnumSet contains unknown bits")
                         );
                     }
@@ -146,7 +145,7 @@ fn enum_set_type_impl(
         quote! {
             fn serialize<S: #serde::Serializer>(
                 set: ::big_enum_set::BigEnumSet<#name>, ser: S,
-            ) -> #core::result::Result<S::Ok, S::Error> {
+            ) -> ::core::result::Result<S::Ok, S::Error> {
                 use #serde::Serialize;
                 const WORD_SIZE: usize = core::mem::size_of::<usize>();
                 let mut bytes = [0u8; #serialize_bytes];
@@ -165,7 +164,7 @@ fn enum_set_type_impl(
             }
             fn deserialize<'de, D: #serde::Deserializer<'de>>(
                 de: D,
-            ) -> #core::result::Result<::big_enum_set::BigEnumSet<#name>, D::Error> {
+            ) -> ::core::result::Result<::big_enum_set::BigEnumSet<#name>, D::Error> {
                 use #serde::Deserialize;
                 const WORD_SIZE: usize = core::mem::size_of::<usize>();
                 let bytes: [u8; #serialize_bytes] = Deserialize::deserialize(de)?;
@@ -195,7 +194,7 @@ fn enum_set_type_impl(
                     .zip(#enum_type::REPR_ALL.iter())
                     .for_each(|(w1, w2)| *w1 = *w1 & *w2);
 
-                #core::prelude::v1::Ok(set)
+                ::core::prelude::v1::Ok(set)
             }
         }
     };
@@ -206,7 +205,7 @@ fn enum_set_type_impl(
     let repr_len = if is_uninhabited {
         quote!(0usize)
     } else {
-        quote!(#max_variant / (#core::mem::size_of::<usize>() * 8) + 1)
+        quote!(#max_variant / (::core::mem::size_of::<usize>() * 8) + 1)
     };
 
     // Compute repr_all seperately like below to allow cross-compiling into a arch with
@@ -241,9 +240,9 @@ fn enum_set_type_impl(
         let variant = max_variant_ident.unwrap();
         quote!(#name::#variant)
     } else if is_byte_enum {
-        quote!(#core::mem::transmute(val as u8))
+        quote!(::core::mem::transmute(val as u8))
     } else {
-        quote!(#core::mem::transmute(val))
+        quote!(::core::mem::transmute(val))
     };
 
     let eq_impl = if is_uninhabited {
@@ -270,18 +269,18 @@ fn enum_set_type_impl(
         }
         unsafe impl ::big_enum_set::BigEnumSetType for #name { }
 
-        impl #core::cmp::PartialEq for #name {
+        impl ::core::cmp::PartialEq for #name {
             fn eq(&self, other: &Self) -> bool {
                 #eq_impl
             }
         }
-        impl #core::cmp::Eq for #name { }
-        impl #core::clone::Clone for #name {
+        impl ::core::cmp::Eq for #name { }
+        impl ::core::clone::Clone for #name {
             fn clone(&self) -> Self {
                 *self
             }
         }
-        impl #core::marker::Copy for #name { }
+        impl ::core::marker::Copy for #name { }
 
         #ops
     }
