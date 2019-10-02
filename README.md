@@ -1,10 +1,10 @@
 # big_enum_set
 
 [![Latest Version](https://img.shields.io/crates/v/big_enum_set.svg)](https://crates.io/crates/big_enum_set)
-![Requires rustc 1.31+](https://img.shields.io/badge/rustc-1.31+-red.svg)
+![Requires rustc 1.38+](https://img.shields.io/badge/rustc-1.38+-red.svg)
 [![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/big_enum_set)
 
-A library for for creating sets of enums which contain a large number of variants. The set is implemented
+A library for creating sets of enums with a large number of variants. The set is implemented
 internally as a bitset stored in an array of `usize`.
 
 See [the documentation](https://docs.rs/big_enum_set) for more information.
