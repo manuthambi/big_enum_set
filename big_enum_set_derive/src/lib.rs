@@ -13,17 +13,16 @@ use syn::export::Span;
 use syn::spanned::Spanned;
 use syn::*;
 
-use core::convert::TryInto;
 use core::iter::FromIterator;
 
 #[cfg(feature = "nightly")]
 fn error(span: Span, data: &str) -> TokenStream {
-    span.unstable().error(data).emit();
+    span.unwrap().error(data).emit();
     TokenStream::new()
 }
 
 #[cfg(not(feature = "nightly"))]
-fn error(_: Span, data: &str) -> TokenStream {
+fn error(_span: Span, data: &str) -> TokenStream {
     panic!("{}", data)
 }
 
@@ -318,7 +317,10 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
                     let mut has_manual_discriminant = false;
                     if let Some((_, expr)) = &variant.discriminant {
                         if let Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) = expr {
-                            current_variant = i.value().try_into().unwrap();
+                            current_variant = match i.base10_parse::<usize>() {
+                                Ok(v) => v,
+                                Err(_e) => return error(variant.span(), "Unparseable discriminant for variant."),
+                            };
                             has_manual_discriminant = true;
                         } else {
                             return error(variant.span(), "Unrecognized discriminant for variant.");
