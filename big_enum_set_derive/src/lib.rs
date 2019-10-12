@@ -111,7 +111,7 @@ fn enum_set_type_impl(
                     }
                     fn visit_seq<A>(
                         mut self, mut seq: A,
-                    ) -> Result<Self::Value, A::Error> where A: #serde::de::SeqAccess<'de> {
+                    ) -> ::core::result::Result<Self::Value, A::Error> where A: #serde::de::SeqAccess<'de> {
                         let mut accum = ::big_enum_set::BigEnumSet::<#name>::new();
                         while let ::core::prelude::v1::Some(val) = seq.next_element::<#name>()? {
                             accum |= val;

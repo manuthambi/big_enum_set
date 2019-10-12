@@ -4,6 +4,11 @@
 use big_enum_set::*;
 use serde_derive::*;
 
+// Test resistance against shadowed types.
+type Some = ();
+type None = ();
+type Result = ();
+
 #[derive(Serialize, Deserialize, BigEnumSetType, Debug)]
 #[big_enum_set(serialize_as_list)]
 #[serde(crate="serde2")]
