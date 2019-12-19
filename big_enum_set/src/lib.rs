@@ -78,7 +78,8 @@ pub use big_enum_set_derive::*;
 
 use core::fmt;
 use core::fmt::{Debug, Formatter};
-use core::hash::Hash;
+use core::hash::{Hash, Hasher};
+use core::cmp::Ordering;
 use core::mem;
 use core::ops::*;
 use core::iter::FromIterator;
@@ -196,7 +197,7 @@ pub unsafe trait BigEnumSetType: Copy + Eq + crate::internal::EnumSetTypePrivate
 /// In addition, the `#[big_enum_set(serialize_as_list)]` annotation causes the `BigEnumSet` to be
 /// instead serialized as a list. This requires your enum type implement [`Serialize`] and
 /// [`Deserialize`].
-#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct BigEnumSet<T: BigEnumSetType> {
     #[doc(hidden)]
     /// This is public due to the [`big_enum_set!`] macro.
@@ -472,6 +473,22 @@ impl<T: BigEnumSetType + Debug> Debug for BigEnumSet<T> {
         }
         f.write_str(")")?;
         Ok(())
+    }
+}
+
+impl <T: BigEnumSetType> Hash for BigEnumSet<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.__repr.hash(state)
+    }
+}
+impl <T: BigEnumSetType> PartialOrd for BigEnumSet<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.__repr.partial_cmp(&other.__repr)
+    }
+}
+impl <T: BigEnumSetType> Ord for BigEnumSet<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.__repr.cmp(&other.__repr)
     }
 }
 
