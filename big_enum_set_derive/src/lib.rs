@@ -300,7 +300,7 @@ struct EnumsetAttrs {
 const MAX_VARIANT: usize = core::u16::MAX as usize;
 
 
-/// Procedural derive generating [`big_enum_set::BigEnumSetType`] implementation.
+/// Procedural derive generating `big_enum_set::BigEnumSetType` implementation.
 ///
 /// # Examples
 ///
