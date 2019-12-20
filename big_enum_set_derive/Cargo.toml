@@ -4,7 +4,7 @@ version = "0.1.2"
 authors = ["Manu Thambi <manu@meshcapital.com>", "Lymia Aluysia <lymia@lymiahugs.com>"]
 edition = "2018"
 
-description = "An internal helper crate for big_enum_set."
+description = "An internal helper crate for big_enum_set. Not public API."
 
 documentation = "https://docs.rs/big_enum_set_derive/"
 repository = "https://github.com/manuthambi/big_enum_set"
