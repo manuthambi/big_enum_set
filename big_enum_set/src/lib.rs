@@ -136,7 +136,7 @@ use internal::{WORD_BITS, WORD_MASK, WORD_SHIFT};
 ///
 /// # Custom Derive
 ///
-/// The custom derive for [`BigEnumSetType`] automatically creates implementations of [`PartialEq`],
+/// The custom derive for [`BigEnumSetType`] automatically creates implementations of
 /// [`Sub`], [`BitAnd`], [`BitOr`], [`BitXor`], and [`Not`] allowing the enum to be used as
 /// if it were an [`BigEnumSet`] in expressions. This can be disabled by adding an `#[big_enum_set(no_ops)]`
 /// annotation to the enum.
