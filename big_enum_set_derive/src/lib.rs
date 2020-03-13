@@ -11,19 +11,13 @@ use proc_macro2::{Literal, TokenStream as SynTokenStream};
 use quote::*;
 use syn::export::Span;
 use syn::spanned::Spanned;
+use syn::Error;
 use syn::*;
 
 use core::iter::FromIterator;
 
-#[cfg(feature = "nightly")]
-fn error(span: Span, data: &str) -> TokenStream {
-    span.unwrap().error(data).emit();
-    TokenStream::new()
-}
-
-#[cfg(not(feature = "nightly"))]
-fn error(_span: Span, data: &str) -> TokenStream {
-    panic!("{}", data)
+fn error(span: Span, msg: &str) -> TokenStream {
+    Error::new(span, msg).to_compile_error().into()
 }
 
 fn enum_set_type_impl(
@@ -371,7 +365,6 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
                         max_variant = current_variant;
                         max_variant_ident = Some(variant.ident.clone());
                     }
-                    max_variant = max_variant.max(current_variant);
                     current_variant += 1;
                 } else {
                     return error(variant.span(),
