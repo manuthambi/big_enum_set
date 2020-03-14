@@ -85,11 +85,11 @@ fn enum_set_type_impl(
             fn serialize<S: #serde::Serializer>(
                 set: ::big_enum_set::BigEnumSet<#name>, ser: S,
             ) -> ::core::result::Result<S::Ok, S::Error> {
-                let mut seq = ser.serialize_seq(::core::prelude::v1::Some(set.len()))?;
+                let mut seq = ser.serialize_seq(::core::option::Option::Some(set.len()))?;
                 for bit in set {
-                    seq.serialize_element(&bit)?;
+                    #serde::ser::SerializeSeq::serialize_element(&mut seq, &bit)?;
                 }
-                seq.end()
+                #serde::ser::SerializeSeq::end(seq)
             }
             fn deserialize<'de, D: #serde::Deserializer<'de>>(
                 de: D,
@@ -106,10 +106,10 @@ fn enum_set_type_impl(
                         mut self, mut seq: A,
                     ) -> ::core::result::Result<Self::Value, A::Error> where A: #serde::de::SeqAccess<'de> {
                         let mut accum = ::big_enum_set::BigEnumSet::<#name>::new();
-                        while let ::core::prelude::v1::Some(val) = seq.next_element::<#name>()? {
+                        while let ::core::option::Option::Some(val) = seq.next_element::<#name>()? {
                             accum |= val;
                         }
-                        ::core::prelude::v1::Ok(accum)
+                        ::core::result::Result::Ok(accum)
                     }
                 }
                 de.deserialize_seq(Visitor)
@@ -125,8 +125,8 @@ fn enum_set_type_impl(
             quote! {
                 if set.__repr.iter().zip(#enum_type::REPR_ALL.iter()).any(|(&w1, &w2)| w1 & !w2 != 0) ||
                     rem.iter().any(|&b| b != 0) {
-                        return ::core::prelude::v1::Err(
-                            D::Error::custom("BigEnumSet contains unknown bits")
+                        return ::core::result::Result::Err(
+                            <D::Error as #serde::de::Error>::custom("BigEnumSet contains unknown bits")
                         );
                     }
             }
@@ -137,7 +137,7 @@ fn enum_set_type_impl(
             fn serialize<S: #serde::Serializer>(
                 set: ::big_enum_set::BigEnumSet<#name>, ser: S,
             ) -> ::core::result::Result<S::Ok, S::Error> {
-                const WORD_SIZE: usize = core::mem::size_of::<usize>();
+                const WORD_SIZE: usize = ::core::mem::size_of::<usize>();
                 let mut bytes = [0u8; #serialize_bytes];
                 let mut chunks = bytes.chunks_exact_mut(WORD_SIZE);
                 let mut words = set.__repr.iter();
@@ -183,7 +183,7 @@ fn enum_set_type_impl(
                     .zip(#enum_type::REPR_ALL.iter())
                     .for_each(|(w1, w2)| *w1 = *w1 & *w2);
 
-                ::core::prelude::v1::Ok(set)
+                ::core::result::Result::Ok(set)
             }
         }
     };
