@@ -1,3 +1,8 @@
+# Version 0.1.6 (2020-03-13)
+* Fixed a bug where compilation failed when the `serde` flag was enabled, and
+  another trait that defined `serialize` or `deserialize` was in scope.
+* Minor code cleanups.
+
 # Version 0.1.5 (2019-12-19)
 * Added documentation for derive macro.
 

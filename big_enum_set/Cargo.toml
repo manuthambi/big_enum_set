@@ -1,6 +1,6 @@
 [package]
 name = "big_enum_set"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Manu Thambi <manu@meshcapital.com>", "Lymia Aluysia <lymia@lymiahugs.com>"]
 edition = "2018"
 
@@ -19,7 +19,7 @@ nightly = ["big_enum_set_derive/nightly"]
 serde = ["serde2", "big_enum_set_derive/serde"]
 
 [dependencies]
-big_enum_set_derive = { version = "0.1.4", path = "../big_enum_set_derive" }
+big_enum_set_derive = { version = "0.1.5", path = "../big_enum_set_derive" }
 serde2 = { package = "serde", version = "1.0.101", default-features = false, optional = true }
 static_assertions = "0.3.4"
 
