@@ -1,4 +1,7 @@
-# Version 0.1.6 (2020-03-13)
+# Version 0.1.7 (2020-03-13)
+* Fixed a compilation breakage with 0.1.6
+
+# Version 0.1.6 (2020-03-13) YANKED
 * Fixed a bug where compilation failed when the `serde` flag was enabled, and
   another trait that defined `serialize` or `deserialize` was in scope.
 * Minor code cleanups.

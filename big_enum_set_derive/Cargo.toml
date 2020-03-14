@@ -1,6 +1,6 @@
 [package]
 name = "big_enum_set_derive"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Manu Thambi <manu@meshcapital.com>", "Lymia Aluysia <lymia@lymiahugs.com>"]
 edition = "2018"
 
@@ -27,4 +27,4 @@ bit-set = "0.5.1"
 bit-vec = "0.5.1"
 
 [dev-dependencies]
-big_enum_set = { version = "0.1.4", path = "../big_enum_set" }
+big_enum_set = { version = "0.1.7", path = "../big_enum_set" }
