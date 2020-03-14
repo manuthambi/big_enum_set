@@ -85,7 +85,6 @@ fn enum_set_type_impl(
             fn serialize<S: #serde::Serializer>(
                 set: ::big_enum_set::BigEnumSet<#name>, ser: S,
             ) -> ::core::result::Result<S::Ok, S::Error> {
-                use #serde::ser::SerializeSeq;
                 let mut seq = ser.serialize_seq(::core::prelude::v1::Some(set.len()))?;
                 for bit in set {
                     seq.serialize_element(&bit)?;
@@ -126,7 +125,6 @@ fn enum_set_type_impl(
             quote! {
                 if set.__repr.iter().zip(#enum_type::REPR_ALL.iter()).any(|(&w1, &w2)| w1 & !w2 != 0) ||
                     rem.iter().any(|&b| b != 0) {
-                        use #serde::de::Error;
                         return ::core::prelude::v1::Err(
                             D::Error::custom("BigEnumSet contains unknown bits")
                         );
@@ -139,7 +137,6 @@ fn enum_set_type_impl(
             fn serialize<S: #serde::Serializer>(
                 set: ::big_enum_set::BigEnumSet<#name>, ser: S,
             ) -> ::core::result::Result<S::Ok, S::Error> {
-                use #serde::Serialize;
                 const WORD_SIZE: usize = core::mem::size_of::<usize>();
                 let mut bytes = [0u8; #serialize_bytes];
                 let mut chunks = bytes.chunks_exact_mut(WORD_SIZE);
@@ -153,14 +150,13 @@ fn enum_set_type_impl(
                     let len = rem.len().min(WORD_SIZE);
                     rem[0 .. len].copy_from_slice(&word.to_le_bytes()[0 .. len]);
                 }
-                bytes.serialize(ser)
+                #serde::Serialize::serialize(&bytes, ser)
             }
             fn deserialize<'de, D: #serde::Deserializer<'de>>(
                 de: D,
             ) -> ::core::result::Result<::big_enum_set::BigEnumSet<#name>, D::Error> {
-                use #serde::Deserialize;
                 const WORD_SIZE: usize = core::mem::size_of::<usize>();
-                let bytes: [u8; #serialize_bytes] = Deserialize::deserialize(de)?;
+                let bytes: [u8; #serialize_bytes] = #serde::Deserialize::deserialize(de)?;
                 let mut chunks = bytes.chunks_exact(WORD_SIZE);
 
                 let mut set = ::big_enum_set::BigEnumSet::<#name>::default();
