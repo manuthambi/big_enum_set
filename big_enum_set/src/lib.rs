@@ -76,13 +76,13 @@
 
 pub use big_enum_set_derive::*;
 
+use core::cmp::Ordering;
 use core::fmt;
 use core::fmt::{Debug, Formatter};
 use core::hash::{Hash, Hasher};
-use core::cmp::Ordering;
+use core::iter::FromIterator;
 use core::mem;
 use core::ops::*;
-use core::iter::FromIterator;
 
 use static_assertions::const_assert_eq;
 
@@ -98,7 +98,8 @@ pub mod internal {
     }
 
     /// A reexport of serde so there is no requirement to depend on serde.
-    #[cfg(feature = "serde")] pub use serde2 as serde;
+    #[cfg(feature = "serde")]
+    pub use serde2 as serde;
 
     /// The actual members of BigEnumSetType. Put here to avoid polluting global namespaces.
     pub unsafe trait EnumSetTypePrivate {
@@ -126,8 +127,10 @@ pub mod internal {
 }
 use internal::{WORD_BITS, WORD_MASK, WORD_SHIFT};
 
-#[cfg(feature = "serde")] use crate::internal::serde;
-#[cfg(feature = "serde")] use crate::serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use crate::internal::serde;
+#[cfg(feature = "serde")]
+use crate::serde::{Deserialize, Serialize};
 
 /// The trait used to define enum types that may be used with [`BigEnumSet`].
 ///
@@ -498,7 +501,9 @@ impl<T: BigEnumSetType + Debug> Debug for BigEnumSet<T> {
         let mut is_first = true;
         f.write_str("BigEnumSet(")?;
         for v in self.iter() {
-            if !is_first { f.write_str(" | ")?; }
+            if !is_first {
+                f.write_str(" | ")?;
+            }
             is_first = false;
             v.fmt(f)?;
         }
@@ -507,17 +512,17 @@ impl<T: BigEnumSetType + Debug> Debug for BigEnumSet<T> {
     }
 }
 
-impl <T: BigEnumSetType> Hash for BigEnumSet<T> {
+impl<T: BigEnumSetType> Hash for BigEnumSet<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.__repr.hash(state)
     }
 }
-impl <T: BigEnumSetType> PartialOrd for BigEnumSet<T> {
+impl<T: BigEnumSetType> PartialOrd for BigEnumSet<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.__repr.partial_cmp(&other.__repr)
     }
 }
-impl <T: BigEnumSetType> Ord for BigEnumSet<T> {
+impl<T: BigEnumSetType> Ord for BigEnumSet<T> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.__repr.cmp(&other.__repr)
     }
@@ -573,7 +578,9 @@ impl<T: BigEnumSetType> Iterator for EnumSetIter<T> {
 
 impl<T: BigEnumSetType> Extend<T> for BigEnumSet<T> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        iter.into_iter().for_each(|v| { self.insert(v); });
+        iter.into_iter().for_each(|v| {
+            self.insert(v);
+        });
     }
 }
 
@@ -584,7 +591,6 @@ impl<T: BigEnumSetType> FromIterator<T> for BigEnumSet<T> {
         set
     }
 }
-
 
 /// Creates a BigEnumSet literal, which can be used in const contexts.
 ///

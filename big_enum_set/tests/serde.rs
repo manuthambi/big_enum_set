@@ -87,22 +87,38 @@ fn test_deny_unknown() {
 
 #[test]
 fn test_json_reprs() {
-    assert_eq!(ListEnum::A | ListEnum::C | ListEnum::F,
-               serde_json::from_str::<BigEnumSet<ListEnum>>(r#"["A","C","F"]"#).unwrap());
-    assert_eq!(ReprEnum::A | ReprEnum::C | ReprEnum::D,
-               serde_json::from_str::<BigEnumSet<ReprEnum>>("[13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]").unwrap());
-    assert_eq!(ReprEnum2::A | ReprEnum2::C | ReprEnum2::D,
-               serde_json::from_str::<BigEnumSet<ReprEnum2>>("[13,0,0,0,0]").unwrap());
-    assert_eq!(ReprEnum3::A | ReprEnum3::C | ReprEnum3::D,
-               serde_json::from_str::<BigEnumSet<ReprEnum3>>("[13,0,0,0,0,0,0,0,0,0,0]").unwrap());
-    assert_eq!(r#"["A","C","F"]"#,
-               serde_json::to_string(&(ListEnum::A | ListEnum::C | ListEnum::F)).unwrap());
-    assert_eq!("[13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]",
-               serde_json::to_string(&(ReprEnum::A | ReprEnum::C | ReprEnum::D)).unwrap());
-    assert_eq!("[13,0,0,0,0]",
-               serde_json::to_string(&(ReprEnum2::A | ReprEnum2::C | ReprEnum2::D)).unwrap());
-    assert_eq!("[13,0,0,0,0,0,0,0,0,0,0]",
-               serde_json::to_string(&(ReprEnum3::A | ReprEnum3::C | ReprEnum3::D)).unwrap());
+    assert_eq!(
+        ListEnum::A | ListEnum::C | ListEnum::F,
+        serde_json::from_str::<BigEnumSet<ListEnum>>(r#"["A","C","F"]"#).unwrap()
+    );
+    assert_eq!(
+        ReprEnum::A | ReprEnum::C | ReprEnum::D,
+        serde_json::from_str::<BigEnumSet<ReprEnum>>("[13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]").unwrap()
+    );
+    assert_eq!(
+        ReprEnum2::A | ReprEnum2::C | ReprEnum2::D,
+        serde_json::from_str::<BigEnumSet<ReprEnum2>>("[13,0,0,0,0]").unwrap()
+    );
+    assert_eq!(
+        ReprEnum3::A | ReprEnum3::C | ReprEnum3::D,
+        serde_json::from_str::<BigEnumSet<ReprEnum3>>("[13,0,0,0,0,0,0,0,0,0,0]").unwrap()
+    );
+    assert_eq!(
+        r#"["A","C","F"]"#,
+        serde_json::to_string(&(ListEnum::A | ListEnum::C | ListEnum::F)).unwrap()
+    );
+    assert_eq!(
+        "[13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]",
+        serde_json::to_string(&(ReprEnum::A | ReprEnum::C | ReprEnum::D)).unwrap()
+    );
+    assert_eq!(
+        "[13,0,0,0,0]",
+        serde_json::to_string(&(ReprEnum2::A | ReprEnum2::C | ReprEnum2::D)).unwrap()
+    );
+    assert_eq!(
+        "[13,0,0,0,0,0,0,0,0,0,0]",
+        serde_json::to_string(&(ReprEnum3::A | ReprEnum3::C | ReprEnum3::D)).unwrap()
+    );
 }
 
 tests!(list_enum, serde_test_simple!(ListEnum, !0));

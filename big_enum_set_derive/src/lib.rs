@@ -289,7 +289,6 @@ struct EnumsetAttrs {
 // if one of the discriminants is large.
 const MAX_VARIANT: usize = core::u16::MAX as usize;
 
-
 /// Procedural derive generating `big_enum_set::BigEnumSetType` implementation.
 ///
 /// # Examples
@@ -319,8 +318,10 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
     let input: DeriveInput = parse_macro_input!(input);
     if let Data::Enum(data) = &input.data {
         if !input.generics.params.is_empty() {
-            error(input.generics.span(),
-                  "`#[derive(BigEnumSetType)]` cannot be used on enums with type parameters.")
+            error(
+                input.generics.span(),
+                "`#[derive(BigEnumSetType)]` cannot be used on enums with type parameters.",
+            )
         } else {
             let mut all_variants = BitSet::default();
             let mut max_variant = 0_usize;
@@ -352,19 +353,24 @@ pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
                     }
 
                     if all_variants.contains(current_variant) {
-                        return error(variant.span(),
-                                     &format!("Duplicate enum discriminant: {}", current_variant))
+                        return error(
+                            variant.span(),
+                            &format!("Duplicate enum discriminant: {}", current_variant),
+                        );
                     }
 
                     all_variants.insert(current_variant);
-                    if current_variant >= max_variant { // use >= because max_variant is initialized to 0.
+                    if current_variant >= max_variant {
+                        // use >= because max_variant is initialized to 0.
                         max_variant = current_variant;
                         max_variant_ident = Some(variant.ident.clone());
                     }
                     current_variant += 1;
                 } else {
-                    return error(variant.span(),
-                                 "`#[derive(BigEnumSetType)]` can only be used on C-like enums.")
+                    return error(
+                        variant.span(),
+                        "`#[derive(BigEnumSetType)]` can only be used on C-like enums.",
+                    );
                 }
             }
 

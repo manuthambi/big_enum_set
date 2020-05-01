@@ -2,10 +2,10 @@
 
 use big_enum_set::*;
 use core::mem;
-use std::collections::{HashSet, BTreeSet};
+use std::collections::{BTreeSet, HashSet};
 
 #[derive(BigEnumSetType, Debug)]
-pub enum EmptyEnum { }
+pub enum EmptyEnum {}
 
 #[test]
 fn test_empty_enum() {
