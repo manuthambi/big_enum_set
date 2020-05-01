@@ -2,7 +2,12 @@
 * **[WARNING: Potential silent breaking change]** Changed `BigEnumSet::insert` to
   return whether a value was newly  inserted, rather than whether the value
   already existed in the set. This corresponds better with the behavior of
-  `HashSet::insert` and `BTreeSet::insert`.
+  `HashSet::insert` and `BTreeSet::insert`. This change matches a similar change
+  in `EnumSet` in `enumset` crate version 1.0.
+* **[WARNING: breaking change]** Removed `Copy`, `PartialOrd`, `Ord`, `PartialEq`,
+  `Eq` and `Hash` implementations of `EnumSetIter`. They are typically not useful
+  for iterators and might result in undetected bugs in client code. This change
+  matches a similar change in `EnumSet` in `enumset` crate version 1.0.
 * Added `BigEnumSet::from_bits_safe`.
 
 # Version 0.1.7 (2020-03-13)

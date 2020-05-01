@@ -543,7 +543,7 @@ impl<'de, T: BigEnumSetType> Deserialize<'de> for BigEnumSet<T> {
 }
 
 /// The iterator used by [`BigEnumSet`]s.
-#[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Debug)]
 pub struct EnumSetIter<T: BigEnumSetType>(BigEnumSet<T>, u32);
 impl<T: BigEnumSetType> Iterator for EnumSetIter<T> {
     type Item = T;
