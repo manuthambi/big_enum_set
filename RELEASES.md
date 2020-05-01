@@ -1,5 +1,9 @@
 # Version 1.0.0 (Unreleased)
-* Added BigEnumSet::from_bits_safe().
+* **[WARNING: Potential silent breaking change]** Changed `BigEnumSet::insert` to
+  return whether a value was newly  inserted, rather than whether the value
+  already existed in the set. This corresponds better with the behavior of
+  `HashSet::insert` and `BTreeSet::insert`.
+* Added `BigEnumSet::from_bits_safe`.
 
 # Version 0.1.7 (2020-03-13)
 * Fixed a compilation breakage with 0.1.6

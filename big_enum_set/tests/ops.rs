@@ -153,6 +153,15 @@ macro_rules! test_enum {
         }
 
         #[test]
+        fn already_present_element() {
+            let mut set = BigEnumSet::new();
+            assert!(set.insert($e::A));
+            assert!(!set.insert($e::A));
+            set.remove($e::A);
+            assert!(set.insert($e::A));
+        }
+
+        #[test]
         fn empty_is_empty() {
             assert_eq!(BigEnumSet::<$e>::empty().len(), 0)
         }

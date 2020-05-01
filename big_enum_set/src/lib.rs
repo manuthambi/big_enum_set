@@ -387,11 +387,11 @@ impl<T: BigEnumSetType> BigEnumSet<T> {
 
     /// Adds a value to this set.
     ///
-    /// If the set did not have this value present, `false` is returned.
+    /// If the set did not have this value present, `true` is returned.
     ///
-    /// If the set did have this value present, `true` is returned.
+    /// If the set did have this value present, `false` is returned.
     pub fn insert(&mut self, value: T) -> bool {
-        self.set_bit(value.enum_into_u16(), true)
+        !self.set_bit(value.enum_into_u16(), true)
     }
     /// Removes a value from this set. Returns whether the value was present in the set.
     pub fn remove(&mut self, value: T) -> bool {
