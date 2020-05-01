@@ -295,6 +295,21 @@ impl<T: BigEnumSetType> BigEnumSet<T> {
         set
     }
 
+    /// Constructs a bitset from raw bits, ignoring any unknown variants.
+    ///
+    /// The size of `bits` need not match the underlying representation.
+    pub fn from_bits_safe(bits: &[usize]) -> Self {
+        let all_set = T::REPR_ALL;
+        let masked_bits = bits.iter()
+            .zip(all_set.as_ref().iter())
+            .map(|(w, all)| *w & *all);
+        let mut set = Self::new();
+        set.__repr.as_mut().iter_mut()
+            .zip(masked_bits)
+            .for_each(|(dst, src)| *dst = src);
+        set
+    }
+
     /// Returns the number of elements in this set.
     pub fn len(&self) -> usize {
         self.__repr.as_ref().iter().map(|w| w.count_ones() as usize).sum()

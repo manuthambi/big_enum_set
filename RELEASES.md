@@ -1,3 +1,6 @@
+# Version 1.0.0 (Unreleased)
+* Added BigEnumSet::from_bits_safe().
+
 # Version 0.1.7 (2020-03-13)
 * Fixed a compilation breakage with 0.1.6
 

@@ -252,6 +252,10 @@ macro_rules! test_enum {
         fn to_from_bits() {
             let value = $e::A | $e::C | $e::D | $e::F | $e::E | $e::G;
             assert_eq!(BigEnumSet::from_bits(value.to_bits()), value);
+            assert_eq!(BigEnumSet::from_bits_safe(value.to_bits()), value);
+
+            assert_eq!(BigEnumSet::<$e>::from_bits_safe(&[0usize; 16]), BigEnumSet::empty());
+            assert_eq!(BigEnumSet::<$e>::from_bits_safe(&[std::usize::MAX; 16]), BigEnumSet::all());
         }
 
         #[test]
