@@ -111,7 +111,7 @@ test_variants! { LargeSparseEnum large_sparse_enum_all_empty
 }
 
 macro_rules! test_enum {
-    ($e:ident, $mem_size:expr) => {
+    ($e:ident, $size:expr) => {
         const CONST_SET: BigEnumSet<$e> = big_enum_set!($e::A | $e::C);
         const EMPTY_SET: BigEnumSet<$e> = big_enum_set!();
         #[test]
@@ -270,13 +270,11 @@ macro_rules! test_enum {
         #[test]
         #[should_panic]
         fn too_many_bits() {
-            if BigEnumSet::<$e>::variant_count() == $mem_size * 8 {
+            const MEM_SIZE: usize = mem_size($size);
+            if BigEnumSet::<$e>::variant_count() as usize == MEM_SIZE * 8 {
                 panic!("(test skipped)")
             }
-            let mut bits = [0usize; $mem_size / core::mem::size_of::<usize>()];
-            for w in &mut bits {
-                *w = !0;
-            }
+            let bits = [std::usize::MAX; MEM_SIZE / core::mem::size_of::<usize>()];
             BigEnumSet::<$e>::from_bits(&bits);
         }
 
@@ -335,9 +333,13 @@ macro_rules! test_enum {
 
         #[test]
         fn check_size() {
+            assert_eq!(mem::size_of::<BigEnumSet<$e>>(), mem_size($size));
+        }
+
+        // size rounded up to size_of::<usize>.
+        const fn mem_size(size: usize) -> usize {
             let usize_len = mem::size_of::<usize>();
-            let size = ($mem_size + usize_len-1) / usize_len * usize_len; // round up
-            assert_eq!(mem::size_of::<BigEnumSet<$e>>(), size);
+            (size + usize_len-1) / usize_len * usize_len
         }
     }
 }
