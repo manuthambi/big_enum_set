@@ -77,8 +77,7 @@
 pub use big_enum_set_derive::*;
 
 use core::cmp::Ordering;
-use core::fmt;
-use core::fmt::{Debug, Formatter};
+use core::fmt::{self, Debug};
 use core::hash::{Hash, Hasher};
 use core::iter::FromIterator;
 use core::mem;
@@ -278,30 +277,37 @@ impl<T: BigEnumSetType> BigEnumSet<T> {
     }
 
     /// Returns the raw bits of this set.
-    pub fn to_bits(&self) -> &[usize] {
+    pub fn as_bits(&self) -> &[usize] {
         self.__repr.as_ref()
     }
 
-    /// Constructs a bitset from raw bits.
+    /// Constructs a `BigEnumSet` from raw bits.
     ///
-    /// # Panics
-    /// If bits not in the enum are set.
-    pub fn from_bits(bits: &[usize]) -> Self {
-        assert_eq!(bits.len(), T::REPR_LEN, "Bits has invalid length.");
-        let valid_bits = bits.iter()
+    /// Returns `None` if there are any invalid bits set in `bits`.
+    /// The size of `bits` need not match the underlying representation.
+    pub fn try_from_bits(bits: &[usize]) -> Option<Self> {
+        let mut bits_valid = bits.iter()
             .zip(T::REPR_ALL.as_ref().iter())
             .all(|(w, all)| *w & !*all == 0);
-        assert!(valid_bits, "Bits not valid for the enum were set.");
+
+        if bits.len() > T::REPR_LEN {
+            bits_valid &= bits[T::REPR_LEN ..].iter().all(|w| *w == 0);
+        }
+        if !bits_valid {
+            return None;
+        }
 
         let mut set = Self::new();
-        set.__repr.as_mut().copy_from_slice(bits);
-        set
+        set.__repr.as_mut().iter_mut()
+            .zip(bits.iter())
+            .for_each(|(dst, src)| *dst = *src);
+        Some(set)
     }
 
-    /// Constructs a bitset from raw bits, ignoring any unknown variants.
+    /// Constructs a `BigEnumSet` from raw bits, ignoring any unknown variants.
     ///
     /// The size of `bits` need not match the underlying representation.
-    pub fn from_bits_safe(bits: &[usize]) -> Self {
+    pub fn from_bits_truncated(bits: &[usize]) -> Self {
         let all_set = T::REPR_ALL;
         let masked_bits = bits.iter()
             .zip(all_set.as_ref().iter())
@@ -497,7 +503,7 @@ impl<T: BigEnumSetType> PartialEq<T> for BigEnumSet<T> {
 }
 
 impl<T: BigEnumSetType + Debug> Debug for BigEnumSet<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut is_first = true;
         f.write_str("BigEnumSet(")?;
         for v in self.iter() {
@@ -545,6 +551,7 @@ impl<'de, T: BigEnumSetType> Deserialize<'de> for BigEnumSet<T> {
 /// The iterator used by [`BigEnumSet`]s.
 #[derive(Clone, Debug)]
 pub struct EnumSetIter<T: BigEnumSetType>(BigEnumSet<T>, u32);
+
 impl<T: BigEnumSetType> Iterator for EnumSetIter<T> {
     type Item = T;
 

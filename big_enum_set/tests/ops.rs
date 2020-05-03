@@ -258,24 +258,33 @@ macro_rules! test_enum {
         }
 
         #[test]
-        fn to_from_bits() {
-            let value = $e::A | $e::C | $e::D | $e::F | $e::E | $e::G;
-            assert_eq!(BigEnumSet::from_bits(value.to_bits()), value);
-            assert_eq!(BigEnumSet::from_bits_safe(value.to_bits()), value);
-
-            assert_eq!(BigEnumSet::<$e>::from_bits_safe(&[0usize; 16]), BigEnumSet::empty());
-            assert_eq!(BigEnumSet::<$e>::from_bits_safe(&[std::usize::MAX; 16]), BigEnumSet::all());
-        }
-
-        #[test]
-        #[should_panic]
-        fn too_many_bits() {
+        fn from_bits() {
             const MEM_SIZE: usize = mem_size($size);
-            if BigEnumSet::<$e>::variant_count() as usize == MEM_SIZE * 8 {
-                panic!("(test skipped)")
+            const WORDS: usize = MEM_SIZE / core::mem::size_of::<usize>();
+            assert_eq!(BigEnumSet::try_from_bits(&[]).unwrap(), BigEnumSet::<$e>::empty());
+            assert_eq!(BigEnumSet::try_from_bits(&[0]).unwrap(), BigEnumSet::<$e>::empty());
+            assert_eq!(BigEnumSet::try_from_bits(&[0; WORDS]).unwrap(), BigEnumSet::<$e>::empty());
+            assert_eq!(BigEnumSet::try_from_bits(&[0; WORDS + 1]).unwrap(), BigEnumSet::<$e>::empty());
+
+            assert_eq!(BigEnumSet::from_bits_truncated(&[]), BigEnumSet::<$e>::empty());
+            assert_eq!(BigEnumSet::from_bits_truncated(&[0]), BigEnumSet::<$e>::empty());
+            assert_eq!(BigEnumSet::from_bits_truncated(&[0; WORDS]), BigEnumSet::<$e>::empty());
+            assert_eq!(BigEnumSet::from_bits_truncated(&[0; WORDS + 1]), BigEnumSet::<$e>::empty());
+
+            let value = $e::A | $e::C | $e::D | $e::F | $e::E | $e::G;
+            assert_eq!(BigEnumSet::try_from_bits(value.as_bits()).unwrap(), value);
+            assert_eq!(BigEnumSet::from_bits_truncated(value.as_bits()), value);
+
+            assert_eq!(BigEnumSet::<$e>::from_bits_truncated(&[std::usize::MAX; WORDS]), BigEnumSet::all());
+            assert_eq!(BigEnumSet::<$e>::from_bits_truncated(&[std::usize::MAX; WORDS+2]), BigEnumSet::all());
+
+            if (BigEnumSet::<$e>::variant_count() as usize) < MEM_SIZE * 8 {
+                let bits = &[std::usize::MAX; WORDS];
+                assert!(BigEnumSet::<$e>::try_from_bits(bits).is_none());
             }
-            let bits = [std::usize::MAX; MEM_SIZE / core::mem::size_of::<usize>()];
-            BigEnumSet::<$e>::from_bits(&bits);
+            let mut bits = [0_usize; WORDS + 1];
+            bits[WORDS] = 0x2;
+            assert!(BigEnumSet::<$e>::try_from_bits(&bits).is_none());
         }
 
         #[test]

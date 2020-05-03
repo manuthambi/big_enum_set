@@ -8,7 +8,10 @@
   `Eq` and `Hash` implementations of `EnumSetIter`. They are typically not useful
   for iterators and might result in undetected bugs in client code. This change
   matches a similar change in `EnumSet` in `enumset` crate version 1.0.
-* Added `BigEnumSet::from_bits_safe`.
+* **[WARNING: breaking change]** Renamed `BigEnumSet::to_bits` to `BigEnumSet::as_bits`.
+* **[WARNING: breaking change]** Replaced `BigEnumSet::from_bits` with `BigEnumSet::try_from_bits`,
+  which returns `Option<BigEnumSet>`.
+* Added `BigEnumSet::from_bits_truncated`.
 * Removed `nightly` feature flag, as it is no longer required.
 
 # Version 0.1.7 (2020-03-13)
