@@ -9,6 +9,7 @@
   for iterators and might result in undetected bugs in client code. This change
   matches a similar change in `EnumSet` in `enumset` crate version 1.0.
 * Added `BigEnumSet::from_bits_safe`.
+* Removed `nightly` feature flag, as it is no longer required.
 
 # Version 0.1.7 (2020-03-13)
 * Fixed a compilation breakage with 0.1.6

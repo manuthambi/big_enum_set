@@ -19,7 +19,6 @@ travis-ci = { repository = "manuthambi/big_enum_set", branch = "master" }
 maintenance = { status = "actively-developed" }
 
 [features]
-nightly = ["big_enum_set_derive/nightly"]
 serde = ["serde2", "big_enum_set_derive/serde"]
 
 [dependencies]

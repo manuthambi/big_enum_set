@@ -5,12 +5,6 @@ matrix:
     - rust: stable
     - rust: 1.38.0
     - rust: nightly
-      script:
-        - cargo test
-        - cd "${TRAVIS_BUILD_DIR}/big_enum_set"
-        - cargo test --features=serde
-        - cargo test --features=nightly
-        - cargo test --features=serde,nightly
 
 script:
   - cargo test
