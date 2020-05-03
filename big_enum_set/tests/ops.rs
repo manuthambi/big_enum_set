@@ -75,6 +75,12 @@ pub enum LargeSparseEnum {
     A = 0, B = 20, C = 128, D = 140, E = 150, F = 160, G = 170, H = 180, I = 190, J = 255,
 }
 
+#[repr(u32)]
+#[derive(BigEnumSetType, Debug)]
+pub enum ReprEnum {
+    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+}
+
 macro_rules! test_variants {
     ($enum_name:ident $all_empty_test:ident $($variant:ident,)*) => {
         #[test]
@@ -362,3 +368,4 @@ tests!(enum8, test_enum!(Enum8, 1));
 tests!(enum128, test_enum!(Enum128, 16));
 tests!(sparse_enum, test_enum!(SparseEnum, 16));
 tests!(large_sparse_enum, test_enum!(LargeSparseEnum, 32));
+tests!(repr_enum, test_enum!(ReprEnum, 4));

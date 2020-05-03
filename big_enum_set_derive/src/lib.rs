@@ -7,11 +7,15 @@ use bit_vec::BitBlock;
 use darling::*;
 use proc_macro2::{Literal, TokenStream};
 use quote::*;
+use syn::export::Span;
 use syn::spanned::Spanned;
 use syn::{Error, Result};
 use syn::*;
 
+use core::convert::TryFrom;
 use core::iter::FromIterator;
+use core::mem;
+use core::{u8, u16, u32, u64};
 
 macro_rules! bail {
     ($span:expr, $msg:expr) => {
@@ -27,11 +31,10 @@ fn enum_set_type_impl(
     all_variants: &BitSet<usize>,
     max_variant: usize,
     max_variant_ident: Option<Ident>,
+    enum_mem_size: usize, // should be 0, 1, 4 or 8.
     attrs: EnumsetAttrs,
 ) -> TokenStream {
-    let is_byte_enum = max_variant <= usize::from(core::u8::MAX);
     let is_uninhabited = all_variants.is_empty();
-    let is_zst = all_variants.len() == 1;
 
     let typed_big_enum_set = quote!(::big_enum_set::BigEnumSet<#name>);
 
@@ -119,7 +122,7 @@ fn enum_set_type_impl(
         }
     } else {
         let min_bytes = max_variant / 8 + 1;
-        let serialize_bytes = attrs.serialize_bytes.map(usize::from).unwrap_or(min_bytes);
+        let serialize_bytes = attrs.serialize_bytes.unwrap_or(min_bytes);
         assert!(min_bytes <= serialize_bytes);
 
         let enum_type = quote!(<#name as ::big_enum_set::internal::EnumSetTypePrivate>);
@@ -199,7 +202,7 @@ fn enum_set_type_impl(
         quote!(#max_variant / (::core::mem::size_of::<usize>() * 8) + 1)
     };
 
-    // Compute repr_all seperately like below to allow cross-compiling into a arch with
+    // Compute repr_all seperately like below to allow cross-compiling into an arch with
     // a different pointer width.
     fn repr_elems<B: BitBlock + Into<u64>>(all_variants: &BitSet<usize>) -> Vec<Literal> {
         BitSet::<B>::from_iter(all_variants)
@@ -227,11 +230,15 @@ fn enum_set_type_impl(
 
     let from_impl = if is_uninhabited {
         quote!(panic!(concat!(stringify!(#name), " is uninhabited.")))
-    } else if is_zst {
+    } else if enum_mem_size == 0 {
         let variant = max_variant_ident.unwrap();
         quote!(#name::#variant)
-    } else if is_byte_enum {
+    } else if enum_mem_size == 1 {
         quote!(::core::mem::transmute(val as u8))
+    } else if enum_mem_size == 2 {
+        quote!(::core::mem::transmute(val as u16))
+    } else if enum_mem_size == 4 {
+        quote!(::core::mem::transmute(val as u32))
     } else {
         quote!(::core::mem::transmute(val))
     };
@@ -284,12 +291,13 @@ struct EnumsetAttrs {
     serialize_as_list: bool,
     serialize_deny_unknown: bool,
     #[darling(default)]
-    serialize_bytes: Option<u8>,
+    serialize_bytes: Option<usize>,
 }
 
 // We put a limit, to avoid accidentally creating sets which use up large amounts of memory
-// if one of the discriminants is large.
-const MAX_VARIANT: usize = core::u16::MAX as usize;
+// if one of the discriminants is large. This has to be <= u16::MAX, because we use u16
+// to hold the bit positions in BigEnumSet.
+const MAX_VARIANT: usize = u16::MAX as usize;
 
 fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
     let data = if let Data::Enum(data) = &input.data {
@@ -351,13 +359,47 @@ fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
         Err(e) => return Ok(e.write_errors()),
     };
 
+    let mut enum_mem_size = None;
+    for attr in &input.attrs {
+        if attr.path.is_ident(&Ident::new("repr", Span::call_site())) {
+            let meta: Ident = attr.parse_args()?;
+            if enum_mem_size.is_some() {
+                bail!(attr.span(), "Cannot duplicate #[repr(...)] annotations.");
+            }
+            let (mem_size, repr_max_variant) = match meta.to_string().as_str() {
+                "u8"  => (mem::size_of::<u8>() , usize::from(u8::MAX)),
+                "u16" => (mem::size_of::<u16>(), usize::from(u16::MAX)),
+                "u32" => (mem::size_of::<u32>(), usize::try_from(u32::MAX).unwrap_or(usize::MAX)),
+                "u64" => (mem::size_of::<u64>(), usize::try_from(u64::MAX).unwrap_or(usize::MAX)),
+                _ => bail!(attr.span(), "Only `u8`, `u16`, `u32` or `u64` reprs are supported."),
+            };
+            if max_variant > repr_max_variant {
+                bail!(attr.span(), "A variant of this enum overflows its repr.");
+            }
+            enum_mem_size = Some(mem_size);
+        }
+    }
+    let enum_mem_size = enum_mem_size.unwrap_or_else(|| {
+        if all_variants.len() <= 1 {
+            0
+        } else if max_variant <= usize::from(u8::MAX) {
+            mem::size_of::<u8>()
+        } else if max_variant <= usize::from(u16::MAX) {
+            mem::size_of::<u16>()
+        } else if max_variant <= usize::try_from(u32::MAX).unwrap_or(usize::MAX) {
+            mem::size_of::<u32>()
+        } else {
+            mem::size_of::<u64>()
+        }
+    });
+
     if let Some(bytes) = attrs.serialize_bytes {
         if max_variant / 8 >= usize::from(bytes) {
             bail!(input.span(), "Too many variants for serialization into {} bytes.", bytes);
         }
     }
 
-    Ok(enum_set_type_impl(&input.ident, &all_variants, max_variant, max_variant_ident, attrs))
+    Ok(enum_set_type_impl(&input.ident, &all_variants, max_variant, max_variant_ident, enum_mem_size, attrs))
 }
 
 /// Procedural derive generating `big_enum_set::BigEnumSetType` implementation.
