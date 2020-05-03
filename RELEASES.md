@@ -1,18 +1,22 @@
 # Version 1.0.0 (Unreleased)
+
+## Breaking changes
 * **[WARNING: Potential silent breaking change]** Changed `BigEnumSet::insert` to
   return whether a value was newly  inserted, rather than whether the value
   already existed in the set. This corresponds better with the behavior of
   `HashSet::insert` and `BTreeSet::insert`. This change matches a similar change
   in `EnumSet` in `enumset` crate version 1.0.
-* **[WARNING: breaking change]** Removed `Copy`, `PartialOrd`, `Ord`, `PartialEq`,
+* Removed `Copy`, `PartialOrd`, `Ord`, `PartialEq`,
   `Eq` and `Hash` implementations of `EnumSetIter`. They are typically not useful
   for iterators and might result in undetected bugs in client code. This change
   matches a similar change in `EnumSet` in `enumset` crate version 1.0.
-* **[WARNING: breaking change]** Renamed `BigEnumSet::to_bits` to `BigEnumSet::as_bits`.
-* **[WARNING: breaking change]** Replaced `BigEnumSet::from_bits` with `BigEnumSet::try_from_bits`,
+* Renamed `BigEnumSet::to_bits` to `BigEnumSet::as_bits`.
+* Replaced `BigEnumSet::from_bits` with `BigEnumSet::try_from_bits`,
   which returns `Option<BigEnumSet>`.
-* Added `BigEnumSet::from_bits_truncated`.
 * Removed `nightly` feature flag, as it is no longer required.
+
+## New features
+* Added `BigEnumSet::from_bits_truncated` that truncate unknown bits.
 
 # Version 0.1.7 (2020-03-13)
 * Fixed a compilation breakage with 0.1.6

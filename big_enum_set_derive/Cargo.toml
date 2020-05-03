@@ -1,7 +1,7 @@
 [package]
 name = "big_enum_set_derive"
 version = "0.1.6"
-authors = ["Manu Thambi <manu@meshcapital.com>", "Lymia Aluysia <lymia@lymiahugs.com>"]
+authors = ["Manu Thambi <hellomanu@gmail.com>", "Alissa Rao <lymia@lymiahugs.com>"]
 edition = "2018"
 
 description = "An internal helper crate for big_enum_set. Not public API."
