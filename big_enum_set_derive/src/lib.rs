@@ -5,18 +5,21 @@ extern crate proc_macro;
 use bit_set::BitSet;
 use bit_vec::BitBlock;
 use darling::*;
-use proc_macro::TokenStream;
-use proc_macro2::{Literal, TokenStream as SynTokenStream};
+use proc_macro2::{Literal, TokenStream};
 use quote::*;
-use syn::export::Span;
 use syn::spanned::Spanned;
-use syn::Error;
+use syn::{Error, Result};
 use syn::*;
 
 use core::iter::FromIterator;
 
-fn error(span: Span, msg: &str) -> TokenStream {
-    Error::new(span, msg).to_compile_error().into()
+macro_rules! bail {
+    ($span:expr, $msg:expr) => {
+        return Err(Error::new($span, $msg));
+    };
+    ($span:expr, $fmt:expr, $($arg:tt)*) => {
+        return Err(Error::new($span, format!($fmt, $($arg)*)));
+    };
 }
 
 fn enum_set_type_impl(
@@ -25,7 +28,7 @@ fn enum_set_type_impl(
     max_variant: usize,
     max_variant_ident: Option<Ident>,
     attrs: EnumsetAttrs,
-) -> SynTokenStream {
+) -> TokenStream {
     let is_byte_enum = max_variant <= usize::from(core::u8::MAX);
     let is_uninhabited = all_variants.is_empty();
     let is_zst = all_variants.len() == 1;
@@ -39,25 +42,25 @@ fn enum_set_type_impl(
         quote! {}
     } else {
         quote! {
-            impl <O : Into<#typed_big_enum_set>> ::core::ops::Sub<O> for #name {
+            impl<O: Into<#typed_big_enum_set>> ::core::ops::Sub<O> for #name {
                 type Output = #typed_big_enum_set;
                 fn sub(self, other: O) -> Self::Output {
                     ::big_enum_set::BigEnumSet::only(self) - other.into()
                 }
             }
-            impl <O : Into<#typed_big_enum_set>> ::core::ops::BitAnd<O> for #name {
+            impl<O: Into<#typed_big_enum_set>> ::core::ops::BitAnd<O> for #name {
                 type Output = #typed_big_enum_set;
                 fn bitand(self, other: O) -> Self::Output {
                     ::big_enum_set::BigEnumSet::only(self) & other.into()
                 }
             }
-            impl <O : Into<#typed_big_enum_set>> ::core::ops::BitOr<O> for #name {
+            impl<O: Into<#typed_big_enum_set>> ::core::ops::BitOr<O> for #name {
                 type Output = #typed_big_enum_set;
                 fn bitor(self, other: O) -> Self::Output {
                     ::big_enum_set::BigEnumSet::only(self) | other.into()
                 }
             }
-            impl <O : Into<#typed_big_enum_set>> ::core::ops::BitXor<O> for #name {
+            impl<O: Into<#typed_big_enum_set>> ::core::ops::BitXor<O> for #name {
                 type Output = #typed_big_enum_set;
                 fn bitxor(self, other: O) -> Self::Output {
                     ::big_enum_set::BigEnumSet::only(self) ^ other.into()
@@ -288,6 +291,75 @@ struct EnumsetAttrs {
 // if one of the discriminants is large.
 const MAX_VARIANT: usize = core::u16::MAX as usize;
 
+fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
+    let data = if let Data::Enum(data) = &input.data {
+        data
+    } else {
+        bail!(input.span(), "`#[derive(BigEnumSetType)]` may only be used on enums");
+    };
+
+    if !input.generics.params.is_empty() {
+        bail!(input.generics.span(), "`#[derive(BigEnumSetType)]` cannot be used on enums with type parameters.");
+    }
+
+    let mut all_variants = BitSet::default();
+    let mut max_variant = 0_usize;
+    let mut max_variant_ident = None;
+    let mut current_variant = 0_usize;
+
+    for variant in &data.variants {
+        if let Fields::Unit = variant.fields {
+            let mut has_manual_discriminant = false;
+            if let Some((_, expr)) = &variant.discriminant {
+                if let Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) = expr {
+                    current_variant = match i.base10_parse::<usize>() {
+                        Ok(v) => v,
+                        Err(_e) => bail!(variant.span(), "Unparseable discriminant for variant."),
+                    };
+                    has_manual_discriminant = true;
+                } else {
+                    bail!(variant.span(), "Unrecognized discriminant for variant.");
+                }
+            }
+
+            if current_variant > MAX_VARIANT {
+                if has_manual_discriminant {
+                    bail!(variant.span(), "`#[derive(BigEnumSetType)]` only supports enum discriminants up to {}.", MAX_VARIANT);
+                } else {
+                    bail!(variant.span(), "`#[derive(BigEnumSetType)]` only supports enums up to {} variants.", MAX_VARIANT+1);
+                }
+            }
+
+            if all_variants.contains(current_variant) {
+                bail!(variant.span(), "Duplicate enum discriminant: {}", current_variant);
+            }
+
+            all_variants.insert(current_variant);
+            if current_variant >= max_variant {
+                // use >= because max_variant is initialized to 0.
+                max_variant = current_variant;
+                max_variant_ident = Some(variant.ident.clone());
+            }
+            current_variant += 1;
+        } else {
+            bail!(variant.span(), "`#[derive(BigEnumSetType)]` can only be used on C-like enums.");
+        }
+    }
+
+    let attrs: EnumsetAttrs = match EnumsetAttrs::from_derive_input(&input) {
+        Ok(attrs) => attrs,
+        Err(e) => return Ok(e.write_errors()),
+    };
+
+    if let Some(bytes) = attrs.serialize_bytes {
+        if max_variant / 8 >= usize::from(bytes) {
+            bail!(input.span(), "Too many variants for serialization into {} bytes.", bytes);
+        }
+    }
+
+    Ok(enum_set_type_impl(&input.ident, &all_variants, max_variant, max_variant_ident, attrs))
+}
+
 /// Procedural derive generating `big_enum_set::BigEnumSetType` implementation.
 ///
 /// # Examples
@@ -296,7 +368,7 @@ const MAX_VARIANT: usize = core::u16::MAX as usize;
 /// use big_enum_set::BigEnumSetType;
 ///
 /// #[derive(BigEnumSetType)]
-/// #[big_enum_set(serialize_bytes="22")]
+/// #[big_enum_set(serialize_bytes=22)]
 /// pub enum Enum {
 ///    A, B, C, D, E, F, G,
 /// }
@@ -309,84 +381,14 @@ const MAX_VARIANT: usize = core::u16::MAX as usize;
 ///   as list of elements instead of a bitset.
 /// * With serde, use `#[big_enum_set(serialize_deny_unknown)]` to generate an
 ///   error during derserialization of [`BigEnumSet`] for an unknown variant of the enum.
-/// * With serde, use `#[big_enum_set(serialize_bytes="N")]` to serialize [`BigEnumSet`]
+/// * With serde, use `#[big_enum_set(serialize_bytes=N)]` to serialize [`BigEnumSet`]
 ///   to N bytes, rather than the minimum number of bytes needed to store the bitset.
 ///   N >= number of variants / 8.
 #[proc_macro_derive(BigEnumSetType, attributes(big_enum_set))]
-pub fn derive_enum_set_type(input: TokenStream) -> TokenStream {
+pub fn derive_big_enum_set_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: DeriveInput = parse_macro_input!(input);
-    if let Data::Enum(data) = &input.data {
-        if !input.generics.params.is_empty() {
-            error(
-                input.generics.span(),
-                "`#[derive(BigEnumSetType)]` cannot be used on enums with type parameters.",
-            )
-        } else {
-            let mut all_variants = BitSet::default();
-            let mut max_variant = 0_usize;
-            let mut max_variant_ident = None;
-            let mut current_variant = 0_usize;
-
-            for variant in &data.variants {
-                if let Fields::Unit = variant.fields {
-                    let mut has_manual_discriminant = false;
-                    if let Some((_, expr)) = &variant.discriminant {
-                        if let Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) = expr {
-                            current_variant = match i.base10_parse::<usize>() {
-                                Ok(v) => v,
-                                Err(_e) => return error(variant.span(), "Unparseable discriminant for variant."),
-                            };
-                            has_manual_discriminant = true;
-                        } else {
-                            return error(variant.span(), "Unrecognized discriminant for variant.");
-                        }
-                    }
-
-                    if current_variant > MAX_VARIANT {
-                        let message = if has_manual_discriminant {
-                            format!("`#[derive(BigEnumSetType)]` only supports enum discriminants up to {}.", MAX_VARIANT)
-                        } else {
-                            format!("`#[derive(BigEnumSetType)]` only supports enums up to {} variants.", MAX_VARIANT+1)
-                        };
-                        return error(variant.span(), &message);
-                    }
-
-                    if all_variants.contains(current_variant) {
-                        return error(
-                            variant.span(),
-                            &format!("Duplicate enum discriminant: {}", current_variant),
-                        );
-                    }
-
-                    all_variants.insert(current_variant);
-                    if current_variant >= max_variant {
-                        // use >= because max_variant is initialized to 0.
-                        max_variant = current_variant;
-                        max_variant_ident = Some(variant.ident.clone());
-                    }
-                    current_variant += 1;
-                } else {
-                    return error(
-                        variant.span(),
-                        "`#[derive(BigEnumSetType)]` can only be used on C-like enums.",
-                    );
-                }
-            }
-
-            let attrs: EnumsetAttrs = match EnumsetAttrs::from_derive_input(&input) {
-                Ok(attrs) => attrs,
-                Err(e) => return e.write_errors().into(),
-            };
-
-            if let Some(bytes) = attrs.serialize_bytes {
-                if max_variant / 8 >= usize::from(bytes) {
-                    return error(input.span(), &format!("Too many variants for serialization into {} bytes.", bytes))
-                }
-            }
-
-            enum_set_type_impl(&input.ident, &all_variants, max_variant, max_variant_ident, attrs).into()
-        }
-    } else {
-        error(input.span(), "`#[derive(BigEnumSetType)]` may only be used on enums")
+    match derive_big_enum_set_type_impl(input) {
+        Ok(v) => v.into(),
+        Err(e) => e.to_compile_error().into(),
     }
 }

@@ -17,25 +17,25 @@ pub enum ListEnum {
 }
 
 #[derive(BigEnumSetType, Debug)]
-#[big_enum_set(serialize_bytes = "16")]
+#[big_enum_set(serialize_bytes = 16)]
 pub enum ReprEnum {
     A, B, C, D, E, F, G, H,
 }
 
 #[derive(BigEnumSetType, Debug)]
-#[big_enum_set(serialize_bytes = "5")]
+#[big_enum_set(serialize_bytes = 5)]
 pub enum ReprEnum2 {
     A, B, C, D, E, F, G, H,
 }
 
 #[derive(BigEnumSetType, Debug)]
-#[big_enum_set(serialize_bytes = "11")]
+#[big_enum_set(serialize_bytes = 11)]
 pub enum ReprEnum3 {
     A, B, C, D, E, F, G, H,
 }
 
 #[derive(BigEnumSetType, Debug)]
-#[big_enum_set(serialize_bytes = "16", serialize_deny_unknown)]
+#[big_enum_set(serialize_bytes = 16, serialize_deny_unknown)]
 pub enum DenyUnknownEnum {
     A, B, C, D, E, F, G, H,
 }
