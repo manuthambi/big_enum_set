@@ -39,7 +39,7 @@ fn enum_set_type_impl(
     let typed_big_enum_set = quote!(::big_enum_set::BigEnumSet<#name>);
 
     #[cfg(feature = "serde")]
-    let serde = quote!(::big_enum_set::internal::serde);
+    let serde = quote!(::big_enum_set::__internal::serde);
 
     let ops = if attrs.no_ops {
         quote! {}
@@ -125,7 +125,7 @@ fn enum_set_type_impl(
         let serialize_bytes = attrs.serialize_bytes.unwrap_or(min_bytes);
         assert!(min_bytes <= serialize_bytes);
 
-        let enum_type = quote!(<#name as ::big_enum_set::internal::EnumSetTypePrivate>);
+        let enum_type = quote!(<#name as ::big_enum_set::__internal::BigEnumSetTypePrivate>);
         let check_unknown = if attrs.serialize_deny_unknown {
             quote! {
                 if set.__repr.iter().zip(#enum_type::REPR_ALL.iter()).any(|(&w1, &w2)| w1 & !w2 != 0) ||
@@ -250,7 +250,7 @@ fn enum_set_type_impl(
     };
 
     quote! {
-        unsafe impl ::big_enum_set::internal::EnumSetTypePrivate for #name {
+        unsafe impl ::big_enum_set::__internal::BigEnumSetTypePrivate for #name {
             type Repr = [usize; #repr_len];
             const REPR_LEN: usize = #repr_len;
             const REPR_NONE: Self::Repr = [0; #repr_len];
