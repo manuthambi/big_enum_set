@@ -9,13 +9,13 @@ use proc_macro2::{Literal, TokenStream};
 use quote::*;
 use syn::export::Span;
 use syn::spanned::Spanned;
-use syn::{Error, Result};
 use syn::*;
+use syn::{Error, Result};
 
 use core::convert::TryFrom;
 use core::iter::FromIterator;
 use core::mem;
-use core::{u8, u16, u32, u64};
+use core::{u16, u32, u64, u8};
 
 macro_rules! bail {
     ($span:expr, $msg:expr) => {
@@ -37,9 +37,6 @@ fn enum_set_type_impl(
     let is_uninhabited = all_variants.is_empty();
 
     let typed_big_enum_set = quote!(::big_enum_set::BigEnumSet<#name>);
-
-    #[cfg(feature = "serde")]
-    let serde = quote!(::big_enum_set::__internal::serde);
 
     let ops = if attrs.no_ops {
         quote! {}
@@ -84,111 +81,35 @@ fn enum_set_type_impl(
     };
 
     #[cfg(feature = "serde")]
-    let serde_ops = if attrs.serialize_as_list {
-        let expecting_str = format!("a list of {}", name);
-        quote! {
-            fn serialize<S: #serde::Serializer>(
-                set: ::big_enum_set::BigEnumSet<#name>, ser: S,
-            ) -> ::core::result::Result<S::Ok, S::Error> {
-                let mut seq = ser.serialize_seq(::core::option::Option::Some(set.len()))?;
-                for bit in set {
-                    #serde::ser::SerializeSeq::serialize_element(&mut seq, &bit)?;
-                }
-                #serde::ser::SerializeSeq::end(seq)
-            }
-            fn deserialize<'de, D: #serde::Deserializer<'de>>(
-                de: D,
-            ) -> ::core::result::Result<::big_enum_set::BigEnumSet<#name>, D::Error> {
-                struct Visitor;
-                impl <'de> #serde::de::Visitor<'de> for Visitor {
-                    type Value = ::big_enum_set::BigEnumSet<#name>;
-                    fn expecting(
-                        &self, formatter: &mut ::core::fmt::Formatter,
-                    ) -> ::core::fmt::Result {
-                        write!(formatter, #expecting_str)
-                    }
-                    fn visit_seq<A>(
-                        mut self, mut seq: A,
-                    ) -> ::core::result::Result<Self::Value, A::Error> where A: #serde::de::SeqAccess<'de> {
-                        let mut accum = ::big_enum_set::BigEnumSet::<#name>::new();
-                        while let ::core::option::Option::Some(val) = seq.next_element::<#name>()? {
-                            accum |= val;
-                        }
-                        ::core::result::Result::Ok(accum)
-                    }
-                }
-                de.deserialize_seq(Visitor)
-            }
-        }
-    } else {
-        let min_bytes = max_variant / 8 + 1;
-        let serialize_bytes = attrs.serialize_bytes.unwrap_or(min_bytes);
-        assert!(min_bytes <= serialize_bytes);
+    let serde_ops = {
+        let serde = quote!(::big_enum_set::__internal::serde);
+        let serde_impl = quote!(::big_enum_set::__internal::serde_impl);
 
-        let enum_type = quote!(<#name as ::big_enum_set::__internal::BigEnumSetTypePrivate>);
-        let check_unknown = if attrs.serialize_deny_unknown {
-            quote! {
-                if set.__repr.iter().zip(#enum_type::REPR_ALL.iter()).any(|(&w1, &w2)| w1 & !w2 != 0) ||
-                    rem.iter().any(|&b| b != 0) {
-                        return ::core::result::Result::Err(
-                            <D::Error as #serde::de::Error>::custom("BigEnumSet contains unknown bits")
-                        );
-                    }
-            }
+        let (serialize_call, deserialize_call) = if attrs.serialize_as_list {
+            (
+                quote! { #serde_impl::serialize_as_list(set, ser) },
+                quote! { #serde_impl::deserialize_from_list(de) },
+            )
         } else {
-            quote! {}
+            let min_bytes = max_variant / 8 + 1;
+            let serialize_bytes = attrs.serialize_bytes.unwrap_or(min_bytes);
+            assert!(min_bytes <= serialize_bytes);
+            let check_unknown = attrs.serialize_deny_unknown;
+
+            (
+                quote! { #serde_impl::serialize_as_bytes(set, ser, #serialize_bytes) },
+                quote! { #serde_impl::deserialize_from_bytes(de, #serialize_bytes, #check_unknown) },
+            )
         };
+
         quote! {
-            fn serialize<S: #serde::Serializer>(
-                set: ::big_enum_set::BigEnumSet<#name>, ser: S,
-            ) -> ::core::result::Result<S::Ok, S::Error> {
-                const WORD_SIZE: usize = ::core::mem::size_of::<usize>();
-                let mut bytes = [0u8; #serialize_bytes];
-                let mut chunks = bytes.chunks_exact_mut(WORD_SIZE);
-                let mut words = set.__repr.iter();
-
-                (&mut chunks).zip(&mut words)
-                    .for_each(|(chunk, word)| chunk.copy_from_slice(&word.to_le_bytes()));
-
-                if let Some(word) = words.next() {
-                    let mut rem = chunks.into_remainder();
-                    let len = rem.len().min(WORD_SIZE);
-                    rem[0 .. len].copy_from_slice(&word.to_le_bytes()[0 .. len]);
-                }
-                #serde::Serialize::serialize(&bytes, ser)
+            fn serialize<S>(set: &#typed_big_enum_set, ser: S) -> ::core::result::Result<S::Ok, S::Error>
+            where S: #serde::Serializer {
+                #serialize_call
             }
-            fn deserialize<'de, D: #serde::Deserializer<'de>>(
-                de: D,
-            ) -> ::core::result::Result<::big_enum_set::BigEnumSet<#name>, D::Error> {
-                const WORD_SIZE: usize = core::mem::size_of::<usize>();
-                let bytes: [u8; #serialize_bytes] = #serde::Deserialize::deserialize(de)?;
-                let mut chunks = bytes.chunks_exact(WORD_SIZE);
-
-                let mut set = ::big_enum_set::BigEnumSet::<#name>::default();
-                let mut words = set.__repr.iter_mut();
-
-                (&mut chunks).zip(&mut words)
-                    .for_each(|(chunk, word)| {
-                        let mut v = [0u8; WORD_SIZE];
-                        v.copy_from_slice(&chunk);
-                        *word = usize::from_le_bytes(v);
-                    });
-
-                let mut rem = chunks.remainder();
-                if let Some(word) = words.next() {
-                    let mut v = [0u8; WORD_SIZE];
-                    let len = rem.len().min(WORD_SIZE);
-                    v[0 .. len].copy_from_slice(&rem[0 .. len]);
-                    *word = usize::from_le_bytes(v);
-                    rem = &rem[len ..];
-                }
-
-                #check_unknown
-                set.__repr.iter_mut()
-                    .zip(#enum_type::REPR_ALL.iter())
-                    .for_each(|(w1, w2)| *w1 = *w1 & *w2);
-
-                ::core::result::Result::Ok(set)
+            fn deserialize<'de, D>(de: D) -> ::core::result::Result<#typed_big_enum_set, D::Error>
+            where D: #serde::Deserializer<'de> {
+                #deserialize_call
             }
         }
     };

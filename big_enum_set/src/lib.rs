@@ -91,8 +91,6 @@ use __internal::{WORD_BITS, WORD_MASK, WORD_SHIFT};
 
 #[cfg(feature = "serde")]
 use crate::__internal::serde;
-#[cfg(feature = "serde")]
-use crate::serde::{Deserialize, Serialize};
 
 /// The trait used to define enum types that may be used with [`BigEnumSet`].
 ///
@@ -498,14 +496,14 @@ impl<T: BigEnumSetType> Ord for BigEnumSet<T> {
 }
 
 #[cfg(feature = "serde")]
-impl<T: BigEnumSetType> Serialize for BigEnumSet<T> {
+impl<T: BigEnumSetType> serde::Serialize for BigEnumSet<T> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        T::serialize(*self, serializer)
+        T::serialize(self, serializer)
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'de, T: BigEnumSetType> Deserialize<'de> for BigEnumSet<T> {
+impl<'de, T: BigEnumSetType> serde::Deserialize<'de> for BigEnumSet<T> {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         T::deserialize(deserializer)
     }

@@ -3,6 +3,7 @@
 
 use big_enum_set::*;
 use serde_derive::*;
+use core::{u8, usize};
 
 // Test resistance against shadowed types.
 type Some = ();
@@ -25,7 +26,7 @@ pub enum ReprEnum {
 #[derive(BigEnumSetType, Debug)]
 #[big_enum_set(serialize_bytes = 5)]
 pub enum ReprEnum2 {
-    A, B, C, D, E, F, G, H,
+    A, B, C, D, E, F, G, H, I = 38, J,
 }
 
 #[derive(BigEnumSetType, Debug)]
@@ -35,9 +36,15 @@ pub enum ReprEnum3 {
 }
 
 #[derive(BigEnumSetType, Debug)]
-#[big_enum_set(serialize_bytes = 16, serialize_deny_unknown)]
+#[big_enum_set(serialize_bytes = 2, serialize_deny_unknown)]
 pub enum DenyUnknownEnum {
-    A, B, C, D, E, F, G, H,
+    A, B, C, D, E, F = 7, G, H,
+}
+
+#[derive(BigEnumSetType, Debug)]
+#[big_enum_set(serialize_bytes = 16, serialize_deny_unknown)]
+pub enum DenyUnknownEnum2 {
+    A, B, C = 8, D, E, F, G = 20, H,
 }
 
 macro_rules! serde_test_simple {
@@ -48,14 +55,14 @@ macro_rules! serde_test_simple {
             let serialized = bincode::serialize(&value).unwrap();
             let deserialized = bincode::deserialize::<BigEnumSet<$e>>(&serialized).unwrap();
             assert_eq!(value, deserialized);
-            if $ser_size != !0 {
+            if $ser_size != usize::MAX {
                 assert_eq!(serialized.len(), $ser_size);
             }
         }
 
         #[test]
         fn serialize_deserialize_test_json() {
-            let value = $e::A | $e::C | $e::D | $e::F | $e::E | $e::G;
+            let value = $e::A | $e::C | $e::D | $e::E | $e::G | $e::H;
             let serialized = serde_json::to_string(&value).unwrap();
             let deserialized = serde_json::from_str::<BigEnumSet<$e>>(&serialized).unwrap();
             assert_eq!(value, deserialized);
@@ -68,21 +75,58 @@ macro_rules! serde_test {
 
         #[test]
         fn deserialize_all_test() {
-            let serialized = bincode::serialize(&!0u128).unwrap();
+            let serialized = bincode::serialize(&[u8::MAX; 32]).unwrap();
             let deserialized = bincode::deserialize::<BigEnumSet<$e>>(&serialized).unwrap();
             assert_eq!(BigEnumSet::<$e>::all(), deserialized);
         }
     }
 }
 macro_rules! tests {
-    ($m:ident, $($tt:tt)*) => { mod $m { use super::*; $($tt)*; } }
+    ($m:ident, $($tt:tt)*) => {
+        mod $m {
+            use super::*; $($tt)*;
+        }
+    }
 }
+tests!(list_enum, serde_test_simple!(ListEnum, usize::MAX));
+tests!(repr_enum, serde_test!(ReprEnum, 16));
+tests!(repr_enum2, serde_test!(ReprEnum2, 5));
+tests!(repr_enum3, serde_test!(ReprEnum3, 11));
+tests!(deny_unknown_enum, serde_test_simple!(DenyUnknownEnum, 2));
+tests!(deny_unknown_enum2, serde_test_simple!(DenyUnknownEnum2, 16));
 
 #[test]
 fn test_deny_unknown() {
-    let serialized = bincode::serialize(&!0u128).unwrap();
+    let serialized = bincode::serialize(&[u8::MAX; 32]).unwrap();
     let deserialized = bincode::deserialize::<BigEnumSet<DenyUnknownEnum>>(&serialized);
-    assert!(deserialized.is_err());
+    assert_eq!(deserialized.unwrap_err().to_string(), "BigEnumSet contains unknown bits");
+
+    assert_eq!(
+        serde_json::from_str::<BigEnumSet<DenyUnknownEnum>>("[13,0,0]").unwrap_err().to_string(),
+        "invalid length 3, expected a byte array of length 2 at line 1 column 8",
+    );
+    assert_eq!(
+        serde_json::from_str::<BigEnumSet<DenyUnknownEnum2>>("[13,0,0]").unwrap_err().to_string(),
+        "invalid length 3, expected a byte array of length 16 at line 1 column 8",
+    );
+
+    assert_eq!(
+        serde_json::from_str::<BigEnumSet<DenyUnknownEnum>>("[32,0]").unwrap_err().to_string(),
+        "BigEnumSet contains unknown bits at line 1 column 6",
+    );
+    assert_eq!(
+        serde_json::from_str::<BigEnumSet<DenyUnknownEnum>>("[16,4]").unwrap_err().to_string(),
+        "BigEnumSet contains unknown bits at line 1 column 6",
+    );
+
+    assert_eq!(
+        serde_json::from_str::<BigEnumSet<DenyUnknownEnum2>>("[0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0]").unwrap_err().to_string(),
+        "BigEnumSet contains unknown bits at line 1 column 25",
+    );
+    assert_eq!(
+        serde_json::from_str::<BigEnumSet<DenyUnknownEnum2>>("[128,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]").unwrap_err().to_string(),
+        "BigEnumSet contains unknown bits at line 1 column 35",
+    );
 }
 
 #[test]
@@ -121,8 +165,17 @@ fn test_json_reprs() {
     );
 }
 
-tests!(list_enum, serde_test_simple!(ListEnum, !0));
-tests!(repr_enum, serde_test!(ReprEnum, 16));
-tests!(repr_enum2, serde_test_simple!(ReprEnum2, 5));
-tests!(repr_enum3, serde_test_simple!(ReprEnum3, 11));
-tests!(deny_unknown_enum, serde_test_simple!(DenyUnknownEnum, 16));
+#[derive(BigEnumSetType, Debug)]
+#[big_enum_set(serialize_deny_unknown)]
+pub enum SingletonEnum {
+    A = 9,
+}
+
+#[test]
+fn test_singleton() {
+    let value = BigEnumSet::from(SingletonEnum::A);
+    let serialized = bincode::serialize(&value).unwrap();
+    let deserialized = bincode::deserialize::<BigEnumSet<SingletonEnum>>(&serialized).unwrap();
+    assert_eq!(value, deserialized);
+    assert_eq!(serialized.len(), 2);
+}

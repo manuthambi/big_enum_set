@@ -18,6 +18,11 @@
 ## New features
 * Added `BigEnumSet::from_bits_truncated` that truncate unknown bits.
 
+## Bugfixes
+* More exhaustive checking to ensure that any unused trailing bytes at
+  the end of a serialized enum are zero, when `#[big_enum_set(serialize_deny_unknown)]`
+  is set.
+
 # Version 0.1.7 (2020-03-13)
 * Fixed a compilation breakage with 0.1.6
 
