@@ -41,31 +41,41 @@ fn enum_set_type_impl(
     let ops = if attrs.no_ops {
         quote! {}
     } else {
+        let op_trait = &[ quote!(BitOr), quote!(BitAnd), quote!(Sub), quote!(BitXor) ];
+        let op_method = &[ quote!(bitor), quote!(bitand), quote!(sub), quote!(bitxor) ];
+        let func = &[
+            quote!(union_enum),
+            quote!(intersection_enum),
+            quote!(difference_enum_reverse),
+            quote!(symmetrical_difference_enum)
+        ];
         quote! {
-            impl<O: Into<#typed_big_enum_set>> ::core::ops::Sub<O> for #name {
-                type Output = #typed_big_enum_set;
-                fn sub(self, other: O) -> Self::Output {
-                    ::big_enum_set::BigEnumSet::only(self) - other.into()
+            #(
+                impl ::core::ops::#op_trait<#typed_big_enum_set> for #name {
+                    type Output = #typed_big_enum_set;
+                    fn #op_method(self, mut other: #typed_big_enum_set) -> Self::Output {
+                        ::big_enum_set::__internal::#func(&mut other, self);
+                        other
+                    }
                 }
-            }
-            impl<O: Into<#typed_big_enum_set>> ::core::ops::BitAnd<O> for #name {
-                type Output = #typed_big_enum_set;
-                fn bitand(self, other: O) -> Self::Output {
-                    ::big_enum_set::BigEnumSet::only(self) & other.into()
+                impl ::core::ops::#op_trait<&#typed_big_enum_set> for #name {
+                    type Output = #typed_big_enum_set;
+                    fn #op_method(self, other: &#typed_big_enum_set) -> Self::Output {
+                        let mut result = ::core::clone::Clone::clone(other);
+                        ::big_enum_set::__internal::#func(&mut result, self);
+                        result
+                    }
                 }
-            }
-            impl<O: Into<#typed_big_enum_set>> ::core::ops::BitOr<O> for #name {
-                type Output = #typed_big_enum_set;
-                fn bitor(self, other: O) -> Self::Output {
-                    ::big_enum_set::BigEnumSet::only(self) | other.into()
+                impl ::core::ops::#op_trait for #name {
+                    type Output = #typed_big_enum_set;
+                    fn #op_method(self, other: Self) -> Self::Output {
+                        let mut result = ::big_enum_set::BigEnumSet::only(other);
+                        ::big_enum_set::__internal::#func(&mut result, self);
+                        result
+                    }
                 }
-            }
-            impl<O: Into<#typed_big_enum_set>> ::core::ops::BitXor<O> for #name {
-                type Output = #typed_big_enum_set;
-                fn bitxor(self, other: O) -> Self::Output {
-                    ::big_enum_set::BigEnumSet::only(self) ^ other.into()
-                }
-            }
+            )*
+
             impl ::core::ops::Not for #name {
                 type Output = #typed_big_enum_set;
                 fn not(self) -> Self::Output {

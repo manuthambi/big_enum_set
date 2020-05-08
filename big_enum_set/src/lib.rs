@@ -76,10 +76,12 @@
 
 pub use big_enum_set_derive::*;
 
+use core::borrow::Borrow;
 use core::cmp::Ordering;
 use core::fmt::{self, Debug};
 use core::hash::{Hash, Hasher};
 use core::iter::FromIterator;
+use core::marker::PhantomData;
 use core::mem;
 use core::ops::*;
 
@@ -301,18 +303,18 @@ impl<T: BigEnumSetType> BigEnumSet<T> {
     }
     /// Returns `true` if `self` has no elements in common with `other`. This is equivalent to
     /// checking for an empty intersection.
-    pub fn is_disjoint(&self, other: Self) -> bool {
-        self.check_all(&other, |w1, w2| w1 & w2 == 0)
+    pub fn is_disjoint<O: Borrow<Self>>(&self, other: O) -> bool {
+        self.check_all(other.borrow(), |w1, w2| w1 & w2 == 0)
     }
     /// Returns `true` if `self` is a superset of `other`, i.e., `self` contains at least all the
     /// elements in `other`.
-    pub fn is_superset(&self, other: Self) -> bool {
-        self.check_all(&other, |w1, w2| w1 & w2 == w2)
+    pub fn is_superset<O: Borrow<Self>>(&self, other: O) -> bool {
+        self.check_all(other.borrow(), |w1, w2| w1 & w2 == w2)
     }
     /// Returns `true` if `self` is a subset of `other`, i.e., `other` contains at least all
     /// the elements in `self`.
-    pub fn is_subset(&self, other: Self) -> bool {
-        other.is_superset(*self)
+    pub fn is_subset<O: Borrow<Self>>(&self, other: O) -> bool {
+        other.borrow().is_superset(self)
     }
 
     fn apply_op<F>(&mut self, other: &Self, op: F)
@@ -322,31 +324,34 @@ impl<T: BigEnumSetType> BigEnumSet<T> {
             .for_each(|(w1, w2)| *w1 = op(*w1, *w2));
     }
     /// Returns a set containing all elements present in either set.
-    pub fn union(&self, mut other: Self) -> Self {
-        other.apply_op(self, |w1, w2| w1 | w2);
-        other
+    pub fn union<O: Borrow<Self>>(&self, other: O) -> Self {
+        let mut result = self.clone();
+        __internal::union(&mut result, other.borrow());
+        result
     }
     /// Returns a set containing all elements present in both sets.
-    pub fn intersection(&self, mut other: Self) -> Self {
-        other.apply_op(self, |w1, w2| w1 & w2);
-        other
+    pub fn intersection<O: Borrow<Self>>(&self, other: O) -> Self {
+        let mut result = self.clone();
+        __internal::intersection(&mut result, other.borrow());
+        result
     }
     /// Returns a set containing all elements present in `self` but not in `other`.
-    pub fn difference(&self, other: Self) -> Self {
-        let mut result = *self;
-        result.apply_op(&other, |w1, w2| w1 & !w2);
+    pub fn difference<O: Borrow<Self>>(&self, other: O) -> Self {
+        let mut result = self.clone();
+        __internal::difference(&mut result, other.borrow());
         result
     }
     /// Returns a set containing all elements present in either `self` or `other`, but is not present
     /// in both.
-    pub fn symmetrical_difference(&self, mut other: Self) -> Self {
-        other.apply_op(self, |w1, w2| w1 ^ w2);
-        other
+    pub fn symmetrical_difference<O: Borrow<Self>>(&self, other: O) -> Self {
+        let mut result = self.clone();
+        __internal::symmetrical_difference(&mut result, other.borrow());
+        result
     }
     /// Returns a set containing all enum variants not present in this set.
     pub fn complement(&self) -> Self {
-        let mut result = Self::all();
-        result.apply_op(self, |w1, w2| w1 & !w2);
+        let mut result = self.clone();
+        __internal::complement(&mut result);
         result
     }
 
@@ -369,17 +374,17 @@ impl<T: BigEnumSetType> BigEnumSet<T> {
     }
 
     /// Adds all elements in another set to this one.
-    pub fn insert_all(&mut self, other: Self) {
-        self.apply_op(&other, |w1, w2| w1 | w2);
+    pub fn insert_all<O: Borrow<Self>>(&mut self, other: O) {
+        __internal::union(self, other.borrow());
     }
     /// Removes all values in another set from this one.
-    pub fn remove_all(&mut self, other: Self) {
-        self.apply_op(&other, |w1, w2| w1 & !w2);
+    pub fn remove_all<O: Borrow<Self>>(&mut self, other: O) {
+        __internal::difference(self, other.borrow());
     }
 
     /// Creates an iterator over the values in this set.
-    pub fn iter(&self) -> EnumSetIter<T> {
-        EnumSetIter(*self, 0)
+    pub fn iter(&self) -> EnumSetIter<&BigEnumSet<T>, T> {
+        EnumSetIter(self, 0, PhantomData)
     }
 }
 
@@ -391,65 +396,123 @@ impl<T: BigEnumSetType> Default for BigEnumSet<T> {
 }
 impl<T: BigEnumSetType> IntoIterator for BigEnumSet<T> {
     type Item = T;
-    type IntoIter = EnumSetIter<T>;
+    type IntoIter = EnumSetIter<BigEnumSet<T>, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+        EnumSetIter(self, 0, PhantomData)
     }
 }
 
-impl<T: BigEnumSetType, O: Into<BigEnumSet<T>>> Sub<O> for BigEnumSet<T> {
-    type Output = Self;
-    fn sub(self, other: O) -> Self::Output {
-        self.difference(other.into())
-    }
+macro_rules! impl_op {
+    ($op_trait:ident, $op_method:ident, $func:ident) => {
+        impl<T: BigEnumSetType> $op_trait<BigEnumSet<T>> for BigEnumSet<T> {
+            type Output = BigEnumSet<T>;
+            fn $op_method(mut self, other: BigEnumSet<T>) -> Self::Output {
+                __internal::$func(&mut self, &other);
+                self
+            }
+        }
+        impl<T: BigEnumSetType> $op_trait<BigEnumSet<T>> for &BigEnumSet<T> {
+            type Output = BigEnumSet<T>;
+            fn $op_method(self, other: BigEnumSet<T>) -> Self::Output {
+                let mut result = self.clone();
+                __internal::$func(&mut result, &other);
+                result
+            }
+        }
+        impl<T: BigEnumSetType> $op_trait<&BigEnumSet<T>> for BigEnumSet<T> {
+            type Output = BigEnumSet<T>;
+            fn $op_method(mut self, other: &BigEnumSet<T>) -> Self::Output {
+                __internal::$func(&mut self, other);
+                self
+            }
+        }
+        impl<T: BigEnumSetType> $op_trait<&BigEnumSet<T>> for &BigEnumSet<T> {
+            type Output = BigEnumSet<T>;
+            fn $op_method(self, other: &BigEnumSet<T>) -> Self::Output {
+                let mut result = self.clone();
+                __internal::$func(&mut result, other);
+                result
+            }
+        }
+    };
 }
-impl<T: BigEnumSetType, O: Into<BigEnumSet<T>>> BitAnd<O> for BigEnumSet<T> {
-    type Output = Self;
-    fn bitand(self, other: O) -> Self::Output {
-        self.intersection(other.into())
-    }
-}
-impl<T: BigEnumSetType, O: Into<BigEnumSet<T>>> BitOr<O> for BigEnumSet<T> {
-    type Output = Self;
-    fn bitor(self, other: O) -> Self::Output {
-        self.union(other.into())
-    }
-}
-impl<T: BigEnumSetType, O: Into<BigEnumSet<T>>> BitXor<O> for BigEnumSet<T> {
-    type Output = Self;
-    fn bitxor(self, other: O) -> Self::Output {
-        self.symmetrical_difference(other.into())
-    }
-}
+impl_op!(BitOr, bitor, union);
+impl_op!(BitAnd, bitand, intersection);
+impl_op!(Sub, sub, difference);
+impl_op!(BitXor, bitxor, symmetrical_difference);
 
-impl<T: BigEnumSetType, O: Into<BigEnumSet<T>>> SubAssign<O> for BigEnumSet<T> {
-    fn sub_assign(&mut self, rhs: O) {
-        *self = *self - rhs;
+macro_rules! impl_op_enum {
+    ($op_trait:ident, $op_method:ident, $func:ident) => {
+        impl<T: BigEnumSetType> $op_trait<T> for BigEnumSet<T> {
+            type Output = Self;
+            fn $op_method(mut self, value: T) -> Self::Output {
+                __internal::$func(&mut self, value);
+                self
+            }
+        }
+        impl<T: BigEnumSetType> $op_trait<T> for &BigEnumSet<T> {
+            type Output = BigEnumSet<T>;
+            fn $op_method(self, value: T) -> Self::Output {
+                let mut result = self.clone();
+                __internal::$func(&mut result, value);
+                result
+            }
+        }
     }
 }
-impl<T: BigEnumSetType, O: Into<BigEnumSet<T>>> BitAndAssign<O> for BigEnumSet<T> {
-    fn bitand_assign(&mut self, rhs: O) {
-        *self = *self & rhs;
+impl_op_enum!(BitOr, bitor, union_enum);
+impl_op_enum!(BitAnd, bitand, intersection_enum);
+impl_op_enum!(Sub, sub, difference_enum);
+impl_op_enum!(BitXor, bitxor, symmetrical_difference_enum);
+
+macro_rules! impl_assign_op {
+    ($op_trait:ident, $op_method:ident, $func:ident) => {
+        impl<T: BigEnumSetType> $op_trait<BigEnumSet<T>> for BigEnumSet<T> {
+            fn $op_method(&mut self, other: BigEnumSet<T>) {
+                __internal::$func(self, &other);
+            }
+        }
+        impl<T: BigEnumSetType> $op_trait<&BigEnumSet<T>> for BigEnumSet<T> {
+            fn $op_method(&mut self, other: &BigEnumSet<T>) {
+                __internal::$func(self, other);
+            }
+        }
+    };
+}
+impl_assign_op!(BitOrAssign, bitor_assign, union);
+impl_assign_op!(BitAndAssign, bitand_assign, intersection);
+impl_assign_op!(SubAssign, sub_assign, difference);
+impl_assign_op!(BitXorAssign, bitxor_assign, symmetrical_difference);
+
+macro_rules! impl_assign_op_enum {
+    ($op_trait:ident, $op_method:ident, $func:ident) => {
+        impl<T: BigEnumSetType> $op_trait<T> for BigEnumSet<T> {
+            fn $op_method(&mut self, value: T) {
+                __internal::$func(self, value);
+            }
+        }
     }
 }
-impl<T: BigEnumSetType, O: Into<BigEnumSet<T>>> BitOrAssign<O> for BigEnumSet<T> {
-    fn bitor_assign(&mut self, rhs: O) {
-        *self = *self | rhs;
-    }
-}
-impl<T: BigEnumSetType, O: Into<BigEnumSet<T>>> BitXorAssign<O> for BigEnumSet<T> {
-    fn bitxor_assign(&mut self, rhs: O) {
-        *self = *self ^ rhs;
-    }
-}
+impl_assign_op_enum!(BitOrAssign, bitor_assign, union_enum);
+impl_assign_op_enum!(BitAndAssign, bitand_assign, intersection_enum);
+impl_assign_op_enum!(SubAssign, sub_assign, difference_enum);
+impl_assign_op_enum!(BitXorAssign, bitxor_assign, symmetrical_difference_enum);
 
 impl<T: BigEnumSetType> Not for BigEnumSet<T> {
     type Output = Self;
+    fn not(mut self) -> Self::Output {
+        __internal::complement(&mut self);
+        self
+    }
+}
+impl<T: BigEnumSetType> Not for &BigEnumSet<T> {
+    type Output = BigEnumSet<T>;
     fn not(self) -> Self::Output {
         self.complement()
     }
 }
+
 
 impl<T: BigEnumSetType> From<T> for BigEnumSet<T> {
     fn from(t: T) -> Self {
@@ -511,16 +574,24 @@ impl<'de, T: BigEnumSetType> serde::Deserialize<'de> for BigEnumSet<T> {
 
 /// The iterator used by [`BigEnumSet`]s.
 #[derive(Clone, Debug)]
-pub struct EnumSetIter<T: BigEnumSetType>(BigEnumSet<T>, u32);
+pub struct EnumSetIter<S, T>(S, u32, PhantomData<T>)
+where
+    S: Borrow<BigEnumSet<T>>,
+    T: BigEnumSetType;
 
-impl<T: BigEnumSetType> Iterator for EnumSetIter<T> {
+impl<S, T> Iterator for EnumSetIter<S, T>
+where
+    S: Borrow<BigEnumSet<T>>,
+    T: BigEnumSetType,
+{
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let set = self.0.borrow();
         while self.1 < BigEnumSet::<T>::bit_width() {
             let bit = self.1 as u16;
             self.1 += 1;
-            if self.0.has_bit(bit) {
+            if set.has_bit(bit) {
                 return unsafe { Some(T::enum_from_u16(bit)) };
             }
         }
@@ -528,8 +599,9 @@ impl<T: BigEnumSetType> Iterator for EnumSetIter<T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
+        let set = self.0.borrow();
         let left_idx = (self.1 >> WORD_SHIFT) as usize;
-        let slice = &self.0.__repr.as_ref()[left_idx..];
+        let slice = &set.__repr.as_ref()[left_idx..];
         let left = if slice.is_empty() {
             0
         } else {

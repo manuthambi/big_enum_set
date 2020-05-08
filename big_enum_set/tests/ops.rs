@@ -136,6 +136,24 @@ macro_rules! test_enum {
             }
             assert!($e::A != $e::B);
             assert!($e::E != $e::F);
+
+            assert_eq!($e::B | ($e::B | $e::C), $e::B | $e::C);
+            assert_eq!($e::B & &($e::B | $e::C), $e::B);
+            assert_eq!($e::B ^ &($e::B | $e::C), $e::C);
+            assert_eq!($e::A ^ ($e::B | $e::C), $e::A | $e::B | $e::C);
+            assert_eq!($e::B - ($e::B | $e::C), BigEnumSet::empty());
+            assert_eq!($e::A - &($e::B | $e::C), $e::A);
+
+            assert_eq!($e::B | $e::C, $e::B | $e::C);
+            assert_eq!($e::B & $e::B, $e::B);
+            assert_eq!($e::B ^ $e::B, BigEnumSet::empty());
+            assert_eq!($e::A ^ $e::B, $e::A | $e::B);
+            assert_eq!($e::B - $e::B, BigEnumSet::empty());
+            assert_eq!($e::A - $e::B, $e::A);
+            assert_eq!($e::A | !$e::A, BigEnumSet::<$e>::all());
+            assert_eq!(!!$e::A, $e::A);
+
+            assert!($e::A == BigEnumSet::only($e::A));
         }
 
         #[test]
@@ -194,24 +212,32 @@ macro_rules! test_enum {
             assert_eq!(set, set_2);
 
             let mut set_3 = BigEnumSet::new();
-            for val in set {
+            for val in set.iter() {
+                assert!(!set_3.contains(val));
+                set_3.insert(val);
+            }
+            assert_eq!(set, set_3);
+
+            let mut set_3 = BigEnumSet::new();
+            for val in set.into_iter() {
                 assert!(!set_3.contains(val));
                 set_3.insert(val);
             }
             assert_eq!(set, set_3);
         }
 
-        fn check_iter_size_hint(set: BigEnumSet<$e>) {
-            let count = set.len();
-            let mut itr = set.iter();
-            for idx in 0 .. count {
-                assert_eq!(itr.size_hint(), (count-idx, Some(count-idx)));
-                assert!(itr.next().is_some());
-            }
-            assert_eq!(itr.size_hint(), (0, Some(0)));
-        }
         #[test]
         fn test_iter_size_hint() {
+            fn check_iter_size_hint(set: BigEnumSet<$e>) {
+                let count = set.len();
+                let mut itr = set.iter();
+                for idx in 0 .. count {
+                    assert_eq!(itr.size_hint(), (count-idx, Some(count-idx)));
+                    assert!(itr.next().is_some());
+                }
+                assert_eq!(itr.size_hint(), (0, Some(0)));
+            }
+
             check_iter_size_hint(BigEnumSet::<$e>::all());
             let mut set = BigEnumSet::new();
             set.insert($e::A);
@@ -228,12 +254,29 @@ macro_rules! test_enum {
         }
 
         #[test]
+        fn basic_methods_test() {
+            assert_eq!(($e::A | $e::B).union(&($e::B | $e::C)), $e::A | $e::B | $e::C);
+            assert_eq!(($e::A | $e::B).intersection($e::B | $e::C), $e::B);
+            assert_eq!(($e::A | $e::B).symmetrical_difference(&($e::B | $e::C)), $e::A | $e::C);
+            assert_eq!(($e::A | $e::B).difference($e::B | $e::C), $e::A);
+            assert_eq!(BigEnumSet::from($e::A).union(!$e::A), BigEnumSet::<$e>::all());
+        }
+
+        #[test]
         fn basic_ops_test() {
             assert_eq!(($e::A | $e::B) | ($e::B | $e::C), $e::A | $e::B | $e::C);
             assert_eq!(($e::A | $e::B) & ($e::B | $e::C), $e::B);
-            assert_eq!(($e::A | $e::B) ^ ($e::B | $e::C), $e::A | $e::C);
-            assert_eq!(($e::A | $e::B) - ($e::B | $e::C), $e::A);
+            assert_eq!(($e::A | $e::B) ^ &($e::B | $e::C), $e::A | $e::C);
+            assert_eq!(&($e::A | $e::B) - ($e::B | $e::C), $e::A);
             assert_eq!($e::A | !$e::A, BigEnumSet::<$e>::all());
+        }
+
+        #[test]
+        fn set_enum_ops_test() {
+            assert_eq!(($e::B | $e::C) | $e::A, $e::A | $e::B | $e::C);
+            assert_eq!(&($e::A | $e::B) & $e::B, $e::B);
+            assert_eq!(($e::B | $e::C) ^ $e::B, $e::C);
+            assert_eq!(($e::A | $e::B) - $e::B, $e::A);
         }
 
         #[test]
@@ -242,12 +285,22 @@ macro_rules! test_enum {
             assert_eq!(set, $e::A | $e::B);
             set |= $e::C | $e::D;
             assert_eq!(set, $e::A | $e::B | $e::C | $e::D);
+            set |= $e::E;
+            assert_eq!(set, $e::A | $e::B | $e::C | $e::D | $e::E);
             set -= $e::C;
+            assert_eq!(set, $e::A | $e::B | $e::D | $e::E);
+            set -= &($e::C | $e::E);
             assert_eq!(set, $e::A | $e::B | $e::D);
             set ^= $e::B | $e::E;
             assert_eq!(set, $e::A | $e::D | $e::E);
-            set &= $e::A | $e::E | $e::F;
-            assert_eq!(set, $e::A | $e::E);
+            set ^= $e::E;
+            assert_eq!(set, $e::A | $e::D);
+            set ^= $e::B;
+            assert_eq!(set, $e::A | $e::B | $e::D);
+            set &= &($e::A | $e::E | $e::F);
+            assert_eq!(set, $e::A);
+            set &= $e::F;
+            assert_eq!(set, BigEnumSet::empty());
         }
 
         #[test]
@@ -255,7 +308,8 @@ macro_rules! test_enum {
             assert!(($e::A | $e::B | $e::C).is_disjoint($e::D | $e::E | $e::F));
             assert!(!($e::A | $e::B | $e::C | $e::D).is_disjoint($e::D | $e::E | $e::F));
             assert!(($e::A | $e::B).is_subset($e::A | $e::B | $e::C));
-            assert!(!($e::A | $e::D).is_subset($e::A | $e::B | $e::C));
+            assert!(!($e::A | $e::D).is_subset(&($e::A | $e::B | $e::C)));
+            assert!(($e::A | $e::D | $e::C).is_superset(&$e::C.into()));
         }
 
         #[test]

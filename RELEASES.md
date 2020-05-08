@@ -6,6 +6,10 @@
   already existed in the set. This corresponds better with the behavior of
   `HashSet::insert` and `BTreeSet::insert`. This change matches a similar change
   in `EnumSet` in `enumset` crate version 1.0.
+* Updated the signatures of many methods in `BigEnumSet` to take arguments by
+  value or reference. Pass the value by reference to avoid copies, if the enum set is
+  large. Also, operator implementations for `BigEnumSet` take arguments by value or
+  reference.
 * Removed `Copy`, `PartialOrd`, `Ord`, `PartialEq`,
   `Eq` and `Hash` implementations of `EnumSetIter`. They are typically not useful
   for iterators and might result in undetected bugs in client code. This change
