@@ -90,6 +90,11 @@ pub enum ReprEnum2 {
 pub enum ReprEnum3 {
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
 }
+#[repr(C)]
+#[derive(BigEnumSetType, Debug)]
+pub enum ReprEnum4 {
+    A, B, C, D, E, F, G, H, I, J, K, L, M, N = 22, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+}
 
 
 macro_rules! test_variants {
@@ -436,3 +441,4 @@ tests!(large_sparse_enum, test_enum!(LargeSparseEnum, 32));
 tests!(repr_enum, test_enum!(ReprEnum, 4));
 tests!(repr_enum2, test_enum!(ReprEnum2, 33));
 tests!(repr_enum3, test_enum!(ReprEnum3, 4));
+tests!(repr_enum4, test_enum!(ReprEnum4, 4));

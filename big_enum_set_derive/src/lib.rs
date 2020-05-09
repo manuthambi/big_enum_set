@@ -2,8 +2,6 @@
 
 extern crate proc_macro;
 
-use bit_set::BitSet;
-use bit_vec::BitBlock;
 use darling::*;
 use proc_macro2::{Literal, TokenStream};
 use quote::*;
@@ -12,9 +10,8 @@ use syn::spanned::Spanned;
 use syn::*;
 use syn::{Error, Result};
 
-use core::convert::TryFrom;
-use core::iter::FromIterator;
-use core::{u16, u32, u64, u8};
+use core::{u16, u32, u64};
+use std::collections::HashSet;
 
 macro_rules! bail {
     ($span:expr, $msg:expr) => {
@@ -27,14 +24,12 @@ macro_rules! bail {
 
 fn enum_set_type_impl(
     name: &Ident,
-    all_variants: &BitSet<usize>,
-    max_variant: usize,
-    max_variant_ident: Option<Ident>,
-    enum_repr: Option<Ident>,
-    attrs: EnumsetAttrs,
-) -> TokenStream {
-    let is_uninhabited = all_variants.is_empty();
-    let is_zst = all_variants.len() == 1;
+    variants: &Vec<Variant>,
+    max_discriminant: u16,
+    attrs: EnumsetAttrs
+) -> Result<TokenStream> {
+    let is_uninhabited = variants.is_empty();
+    let is_zst = variants.len() == 1;
 
     let typed_big_enum_set = quote!(::big_enum_set::BigEnumSet<#name>);
 
@@ -101,7 +96,7 @@ fn enum_set_type_impl(
                 quote! { #serde_impl::deserialize_from_list(de) },
             )
         } else {
-            let min_bytes = max_variant / 8 + 1;
+            let min_bytes = usize::from(max_discriminant) / 8 + 1;
             let serialize_bytes = attrs.serialize_bytes.unwrap_or(min_bytes);
             assert!(min_bytes <= serialize_bytes);
             let check_unknown = attrs.serialize_deny_unknown;
@@ -130,28 +125,10 @@ fn enum_set_type_impl(
     let repr_len = if is_uninhabited {
         quote!(0usize)
     } else {
-        quote!(#max_variant / (::core::mem::size_of::<usize>() * 8) + 1)
+        let max_discriminant = usize::from(max_discriminant);
+        quote!(#max_discriminant / (::core::mem::size_of::<usize>() * 8) + 1)
     };
-
-    // Compute repr_all seperately like below to allow cross-compiling into an arch with
-    // a different pointer width.
-    fn repr_elems<B: BitBlock + Into<u64>>(all_variants: &BitSet<usize>) -> Vec<Literal> {
-        BitSet::<B>::from_iter(all_variants)
-            .get_ref()
-            .blocks()
-            .map(|w| Literal::u64_unsuffixed(w.into()))
-            .collect()
-    }
-    let repr_elems_u16 = repr_elems::<u16>(all_variants);
-    let repr_elems_u32 = repr_elems::<u32>(all_variants);
-    let repr_elems_u64 = repr_elems::<u64>(all_variants);
-    let repr_all = quote! {{
-        #[cfg(target_pointer_width = "16")] { [ #( #repr_elems_u16 ),* ] }
-        #[cfg(target_pointer_width = "32")] { [ #( #repr_elems_u32 ),* ] }
-        #[cfg(target_pointer_width = "64")] { [ #( #repr_elems_u64 ),* ] }
-        #[cfg(not(any(target_pointer_width = "16", target_pointer_width = "32", target_pointer_width = "64")))]
-        { core::compile_error!("Invalid target_pointer_width") }
-    }};
+    let repr_all = repr_all(variants, max_discriminant)?;
 
     let into_impl = if is_uninhabited {
         quote!(panic!(concat!(stringify!(#name), " is uninhabited.")))
@@ -162,11 +139,13 @@ fn enum_set_type_impl(
     let from_impl = if is_uninhabited {
         quote!(panic!(concat!(stringify!(#name), " is uninhabited.")))
     } else if is_zst {
-        let variant = max_variant_ident.unwrap();
-        quote!(#name::#variant)
+        let variant = &variants[0].name;
+        quote!(Self::#variant)
     } else {
-        let enum_repr = enum_repr.unwrap();
-        quote!(::core::mem::transmute(val as #enum_repr))
+        #[cfg(not(enum_match))]
+        { from_impl_transmute(name) }
+        #[cfg(enum_match)]
+        { from_impl_match(variants) }
     };
 
     let eq_impl = if is_uninhabited {
@@ -175,7 +154,7 @@ fn enum_set_type_impl(
         quote!((*self as u16) == (*other as u16))
     };
 
-    quote! {
+    let result = quote! {
         unsafe impl ::big_enum_set::__internal::BigEnumSetTypePrivate for #name {
             type Repr = [usize; #repr_len];
             const REPR_LEN: usize = #repr_len;
@@ -207,6 +186,81 @@ fn enum_set_type_impl(
         impl ::core::marker::Copy for #name { }
 
         #ops
+    };
+    Ok(result)
+}
+
+fn repr_all(variants: &[Variant], max_discriminant: u16) -> Result<TokenStream> {
+    use bit_vec::{BitVec, BitBlock};
+
+    if variants.is_empty() {
+        return Ok(quote!([]));
+    }
+
+    // Compute repr_all seperately like below to allow cross-compiling into an arch with
+    // a different pointer width.
+    fn repr_elems<B: BitBlock + Into<u64>>(variants: &[Variant], variant_count: usize) -> Vec<Literal> {
+        let mut bits = BitVec::<B>::default();
+        bits.grow(variant_count, false);
+        for v in variants.iter() {
+            bits.set(usize::from(v.discriminant), true);
+        }
+        bits.blocks().map(|w| Literal::u64_unsuffixed(w.into())).collect()
+    }
+    let variant_count = match usize::from(max_discriminant).checked_add(1) {
+        Some(c) => c,
+        None => {
+            bail!(
+                Span::call_site(),
+                "Discriminant overflowed (discriminant cannot be `u16::MAX` when `mem::size_of::<usize>() == 2`)."
+            );
+        }
+    };
+    let repr_elems_u16 = repr_elems::<u16>(variants, variant_count);
+    let repr_elems_u32 = repr_elems::<u32>(variants, variant_count);
+    let repr_elems_u64 = repr_elems::<u64>(variants, variant_count);
+    Ok(quote! {{
+        #[cfg(target_pointer_width = "16")] { [ #( #repr_elems_u16 ),* ] }
+        #[cfg(target_pointer_width = "32")] { [ #( #repr_elems_u32 ),* ] }
+        #[cfg(target_pointer_width = "64")] { [ #( #repr_elems_u64 ),* ] }
+        #[cfg(not(any(target_pointer_width = "16", target_pointer_width = "32", target_pointer_width = "64")))]
+        { core::compile_error!("Invalid target_pointer_width") }
+    }})
+}
+
+#[allow(dead_code)]
+fn from_impl_transmute(name: &Ident) -> TokenStream {
+    let const_field = ["IS_U8", "IS_U16", "IS_U32", "IS_U64", "IS_U128"]
+        .iter().map(|f| Ident::new(f, Span::call_site())).collect::<Vec<_>>();
+    let int_type = ["u8", "u16", "u32", "u64", "u128"]
+        .iter().map(|t| Ident::new(t, Span::call_site())).collect::<Vec<_>>();
+    quote! {
+        // Use const fields so the branches they guard aren't generated even on -O0
+        #(const #const_field: bool = ::core::mem::size_of::<#name>() == ::core::mem::size_of::<#int_type>();)*
+        match val {
+            // Use the right kind of transmute.
+            #(x if #const_field => {
+                let x = x as #int_type;
+                *(&x as *const _ as *const Self)
+            })*
+            _ => ::core::hint::unreachable_unchecked(),
+        }
+    }
+}
+
+#[allow(dead_code)]
+fn from_impl_match(variants: &[Variant]) -> TokenStream {
+    let variant_name = variants.iter().map(|v| &v.name).collect::<Vec<_>>();
+    let variant_value = variants.iter().map(|v| v.discriminant).collect::<Vec<_>>();
+    quote! {
+        match val {
+            // Every valid variant value has an explicit branch. If they get optimized out,
+            // great. If the representation has changed somehow, and they don't, oh well,
+            // there's still no UB.
+            #(#variant_value => Self::#variant_name,)*
+            // Hint to LLVM that this match is effectively a transmute for optimization.
+            _ => ::core::hint::unreachable_unchecked(),
+        }
     }
 }
 
@@ -223,7 +277,12 @@ struct EnumsetAttrs {
 // We put a limit, to avoid accidentally creating sets which use up large amounts of memory
 // if one of the discriminants is large. This has to be <= u16::MAX, because we use u16
 // to hold the bit positions in BigEnumSet.
-const MAX_VARIANT: usize = u16::MAX as usize;
+const MAX_DISCRIMINANT: u16 = u16::MAX;
+
+struct Variant {
+    name: Ident,
+    discriminant: u16,
+}
 
 fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
     let data = if let Data::Enum(data) = &input.data {
@@ -236,92 +295,68 @@ fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
         bail!(input.generics.span(), "`#[derive(BigEnumSetType)]` cannot be used on enums with type parameters.");
     }
 
-    let mut all_variants = BitSet::default();
-    let mut max_variant = 0_usize;
-    let mut max_variant_ident = None;
-    let mut current_variant = 0_usize;
+    let mut variants = Vec::new();
+    let mut current_discriminant = 0_u16;
 
     for variant in &data.variants {
         if let Fields::Unit = variant.fields {
-            let mut has_manual_discriminant = false;
             if let Some((_, expr)) = &variant.discriminant {
                 if let Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) = expr {
-                    current_variant = match i.base10_parse::<usize>() {
+                    current_discriminant = match i.base10_parse::<u16>() {
                         Ok(v) => v,
                         Err(_e) => bail!(
                             variant.span(),
                             "Unparseable discriminant for variant (discriminants must be non-negative and fit in `u16`)."
                         ),
                     };
-                    has_manual_discriminant = true;
+                    if current_discriminant > MAX_DISCRIMINANT {
+                        bail!(variant.span(), "`#[derive(BigEnumSetType)]` only supports enum discriminants up to {}.", MAX_DISCRIMINANT);
+                    }
                 } else {
                     bail!(variant.span(), "Unrecognized discriminant for variant.");
                 }
+            } else if current_discriminant > MAX_DISCRIMINANT {
+                bail!(variant.span(), "`#[derive(BigEnumSetType)]` only supports enums up to {} variants.", u32::from(MAX_DISCRIMINANT)+1);
             }
 
-            if current_variant > MAX_VARIANT {
-                if has_manual_discriminant {
-                    bail!(variant.span(), "`#[derive(BigEnumSetType)]` only supports enum discriminants up to {}.", MAX_VARIANT);
-                } else {
-                    bail!(variant.span(), "`#[derive(BigEnumSetType)]` only supports enums up to {} variants.", MAX_VARIANT+1);
-                }
-            }
+            variants.push(Variant { name: variant.ident.clone(), discriminant: current_discriminant });
 
-            if all_variants.contains(current_variant) {
-                bail!(variant.span(), "Duplicate enum discriminant: {}", current_variant);
-            }
-
-            all_variants.insert(current_variant);
-            if current_variant >= max_variant {
-                // use >= because max_variant is initialized to 0.
-                max_variant = current_variant;
-                max_variant_ident = Some(variant.ident.clone());
-            }
-            current_variant += 1;
+            current_discriminant += 1;
         } else {
             bail!(variant.span(), "`#[derive(BigEnumSetType)]` can only be used on fieldless enums.");
         }
     }
+
+    validate(&variants)?;
+    let max_discriminant = variants.iter().map(|v| v.discriminant).max().unwrap_or(0);
 
     let attrs: EnumsetAttrs = match EnumsetAttrs::from_derive_input(&input) {
         Ok(attrs) => attrs,
         Err(e) => return Ok(e.write_errors()),
     };
 
-    let mut enum_repr = None;
-    for attr in &input.attrs {
-        if attr.path.is_ident(&Ident::new("repr", Span::call_site())) {
-            let meta: Ident = attr.parse_args()?;
-            if enum_repr.is_some() {
-                bail!(attr.span(), "Cannot duplicate #[repr(...)] annotations.");
-            }
-            match meta.to_string().as_str() {
-                "Rust" | "C" => (), // We assume default repr in these cases.
-                "u8"  | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" | "u128" | "i128" | "usize" | "isize" => {
-                    enum_repr = Some(meta);
-                }
-                _ => bail!(attr.span(), "Unsupported repr."),
-            }
-        }
-    }
-
-    if enum_repr.is_none() && all_variants.len() > 1 {
-        let repr_str = match max_variant {
-            v if v <= usize::from(u8::MAX) => "u8",
-            v if v <= usize::from(u16::MAX) => "u16",
-            v if v <= usize::try_from(u32::MAX).unwrap_or(usize::MAX) => "u32", // never reached.
-            _ => "u64", // never reached.
-        };
-        enum_repr = Some(Ident::new(repr_str, Span::call_site()));
-    }
-
     if let Some(bytes) = attrs.serialize_bytes {
-        if max_variant / 8 >= usize::from(bytes) {
+        if usize::from(max_discriminant) / 8 >= bytes {
             bail!(input.span(), "Too many variants for serialization into {} bytes.", bytes);
         }
     }
 
-    Ok(enum_set_type_impl(&input.ident, &all_variants, max_variant, max_variant_ident, enum_repr, attrs))
+    enum_set_type_impl(&input.ident, &variants, max_discriminant, attrs)
+}
+
+fn validate(variants: &[Variant]) -> Result<()> {
+    // These checks are probably not required, because Rust checks them anyways.
+    let mut seen_names = HashSet::new();
+    let mut seen_discriminants = HashSet::new();
+    for v in variants.iter() {
+        if !seen_names.insert(v.name.to_string()) {
+            bail!(v.name.span(), "Duplicate variant name.");
+        }
+        if !seen_discriminants.insert(v.discriminant) {
+            bail!(v.name.span(), "Duplicate discriminant.");
+        }
+    }
+    Ok(())
 }
 
 /// Procedural derive generating `big_enum_set::BigEnumSetType` implementation.
