@@ -26,6 +26,8 @@
 * More exhaustive checking to ensure that any unused trailing bytes at
   the end of a serialized enum are zero, when `#[big_enum_set(serialize_deny_unknown)]`
   is set.
+* Proc macro now supports `#[repr(XXX)]` annontations. The variant discriminants should
+  still be non-negative and fit in a `u16`.
 
 # Version 0.1.7 (2020-03-13)
 * Fixed a compilation breakage with 0.1.6

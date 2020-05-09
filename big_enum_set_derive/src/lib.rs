@@ -14,7 +14,6 @@ use syn::{Error, Result};
 
 use core::convert::TryFrom;
 use core::iter::FromIterator;
-use core::mem;
 use core::{u16, u32, u64, u8};
 
 macro_rules! bail {
@@ -31,10 +30,11 @@ fn enum_set_type_impl(
     all_variants: &BitSet<usize>,
     max_variant: usize,
     max_variant_ident: Option<Ident>,
-    enum_mem_size: usize, // should be 0, 1, 4 or 8.
+    enum_repr: Option<Ident>,
     attrs: EnumsetAttrs,
 ) -> TokenStream {
     let is_uninhabited = all_variants.is_empty();
+    let is_zst = all_variants.len() == 1;
 
     let typed_big_enum_set = quote!(::big_enum_set::BigEnumSet<#name>);
 
@@ -161,17 +161,12 @@ fn enum_set_type_impl(
 
     let from_impl = if is_uninhabited {
         quote!(panic!(concat!(stringify!(#name), " is uninhabited.")))
-    } else if enum_mem_size == 0 {
+    } else if is_zst {
         let variant = max_variant_ident.unwrap();
         quote!(#name::#variant)
-    } else if enum_mem_size == 1 {
-        quote!(::core::mem::transmute(val as u8))
-    } else if enum_mem_size == 2 {
-        quote!(::core::mem::transmute(val as u16))
-    } else if enum_mem_size == 4 {
-        quote!(::core::mem::transmute(val as u32))
     } else {
-        quote!(::core::mem::transmute(val))
+        let enum_repr = enum_repr.unwrap();
+        quote!(::core::mem::transmute(val as #enum_repr))
     };
 
     let eq_impl = if is_uninhabited {
@@ -253,7 +248,10 @@ fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
                 if let Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) = expr {
                     current_variant = match i.base10_parse::<usize>() {
                         Ok(v) => v,
-                        Err(_e) => bail!(variant.span(), "Unparseable discriminant for variant."),
+                        Err(_e) => bail!(
+                            variant.span(),
+                            "Unparseable discriminant for variant (discriminants must be non-negative and fit in `u16`)."
+                        ),
                     };
                     has_manual_discriminant = true;
                 } else {
@@ -281,7 +279,7 @@ fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
             }
             current_variant += 1;
         } else {
-            bail!(variant.span(), "`#[derive(BigEnumSetType)]` can only be used on C-like enums.");
+            bail!(variant.span(), "`#[derive(BigEnumSetType)]` can only be used on fieldless enums.");
         }
     }
 
@@ -290,39 +288,32 @@ fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
         Err(e) => return Ok(e.write_errors()),
     };
 
-    let mut enum_mem_size = None;
+    let mut enum_repr = None;
     for attr in &input.attrs {
         if attr.path.is_ident(&Ident::new("repr", Span::call_site())) {
             let meta: Ident = attr.parse_args()?;
-            if enum_mem_size.is_some() {
+            if enum_repr.is_some() {
                 bail!(attr.span(), "Cannot duplicate #[repr(...)] annotations.");
             }
-            let (mem_size, repr_max_variant) = match meta.to_string().as_str() {
-                "u8"  => (mem::size_of::<u8>() , usize::from(u8::MAX)),
-                "u16" => (mem::size_of::<u16>(), usize::from(u16::MAX)),
-                "u32" => (mem::size_of::<u32>(), usize::try_from(u32::MAX).unwrap_or(usize::MAX)),
-                "u64" => (mem::size_of::<u64>(), usize::try_from(u64::MAX).unwrap_or(usize::MAX)),
-                _ => bail!(attr.span(), "Only `u8`, `u16`, `u32` or `u64` reprs are supported."),
-            };
-            if max_variant > repr_max_variant {
-                bail!(attr.span(), "A variant of this enum overflows its repr.");
+            match meta.to_string().as_str() {
+                "Rust" | "C" => (), // We assume default repr in these cases.
+                "u8"  | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" | "u128" | "i128" | "usize" | "isize" => {
+                    enum_repr = Some(meta);
+                }
+                _ => bail!(attr.span(), "Unsupported repr."),
             }
-            enum_mem_size = Some(mem_size);
         }
     }
-    let enum_mem_size = enum_mem_size.unwrap_or_else(|| {
-        if all_variants.len() <= 1 {
-            0
-        } else if max_variant <= usize::from(u8::MAX) {
-            mem::size_of::<u8>()
-        } else if max_variant <= usize::from(u16::MAX) {
-            mem::size_of::<u16>()
-        } else if max_variant <= usize::try_from(u32::MAX).unwrap_or(usize::MAX) {
-            mem::size_of::<u32>()
-        } else {
-            mem::size_of::<u64>()
-        }
-    });
+
+    if enum_repr.is_none() && all_variants.len() > 1 {
+        let repr_str = match max_variant {
+            v if v <= usize::from(u8::MAX) => "u8",
+            v if v <= usize::from(u16::MAX) => "u16",
+            v if v <= usize::try_from(u32::MAX).unwrap_or(usize::MAX) => "u32", // never reached.
+            _ => "u64", // never reached.
+        };
+        enum_repr = Some(Ident::new(repr_str, Span::call_site()));
+    }
 
     if let Some(bytes) = attrs.serialize_bytes {
         if max_variant / 8 >= usize::from(bytes) {
@@ -330,7 +321,7 @@ fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
         }
     }
 
-    Ok(enum_set_type_impl(&input.ident, &all_variants, max_variant, max_variant_ident, enum_mem_size, attrs))
+    Ok(enum_set_type_impl(&input.ident, &all_variants, max_variant, max_variant_ident, enum_repr, attrs))
 }
 
 /// Procedural derive generating `big_enum_set::BigEnumSetType` implementation.
