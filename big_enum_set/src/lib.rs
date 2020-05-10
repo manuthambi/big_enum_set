@@ -2,12 +2,12 @@
 #![forbid(missing_docs)]
 
 //! A library for creating enum sets that are stored as compact bit sets. The code is based on
-//! the `enumset` crate, except that the backing store used is an array of `usize`. This enables
+//! the [`enumset`] crate, except that the backing store used is an array of `usize`. This enables
 //! use with enums with large number of variants. The API is very similar to that of `enumset`.
 //!
 //! For serde support, enable the `serde` feature.
 //!
-//! # Defining enums for use with BigEnumSet
+//! # Defining enums for use with `BigEnumSet`
 //!
 //! Enums to be used with [`BigEnumSet`] should be defined using `#[derive(BigEnumSetType)]`:
 //!
@@ -19,7 +19,9 @@
 //! }
 //! ```
 //!
-//! # Working with BigEnumSets
+//! For more information on more advanced use cases, see the documentation for [`BigEnumSetType`].
+//!
+//! # Working with `BigEnumSet`s
 //!
 //! BigEnumSets can be constructed via [`BigEnumSet::new()`] like a normal set. In addition,
 //! `#[derive(BigEnumSetType)]` creates operator overloads that allow you to create BigEnumSets like so:
@@ -61,7 +63,7 @@
 //! assert_eq!(CONST_SET, Enum::A | Enum::B);
 //! ```
 //!
-//! Mutable operations on the [`BigEnumSet`] otherwise work basically as expected:
+//! Mutable operations on the [`BigEnumSet`] work similarly to Rust's builtin sets:
 //!
 //! ```rust
 //! # use big_enum_set::*;
@@ -97,19 +99,23 @@ use crate::__internal::serde;
 /// The trait used to define enum types that may be used with [`BigEnumSet`].
 ///
 /// This trait should be implemented using `#[derive(BigEnumSetType)]`. Its internal structure is
-/// not currently stable, and may change at any time.
+/// not stable, and may change at any time.
 ///
 /// # Custom Derive
+///
+/// Any C-like enum is supported, as long as there are no more than 65536 variants in the enum,
+/// and no variant discriminant is larger than 65535.
 ///
 /// The custom derive for [`BigEnumSetType`] automatically creates implementations of
 /// [`Sub`], [`BitAnd`], [`BitOr`], [`BitXor`], and [`Not`] allowing the enum to be used as
 /// if it were an [`BigEnumSet`] in expressions. This can be disabled by adding an `#[big_enum_set(no_ops)]`
-/// annotation to the enum.
+/// attribute to the enum.
 ///
 /// The custom derive for `BigEnumSetType` automatically implements [`Copy`], [`Clone`], [`Eq`], and
 /// [`PartialEq`] on the enum. These are required for the [`BigEnumSet`] to function.
 ///
-/// Any C-like enum is supported.
+/// Attributes controlling the serialization of `BigEnumSet` are documented in
+/// [its documentation](./struct.BigEnumSet.html#serialization).
 ///
 /// # Examples
 ///
@@ -148,23 +154,31 @@ pub unsafe trait BigEnumSetType: Copy + Eq + crate::__internal::BigEnumSetTypePr
 /// An efficient set type for enums.
 ///
 /// It is implemented using a bitset stored as `[usize; N]`, where N is the smallest number that
-/// such that the array can fit all the bits of the underlying enum.
+/// such that the array can fit all the bits of the underlying enum. An enum with discriminant `n`
+/// is stored in the `n / WORD_SIZE` word at the `n % WORD_SIZE` least significant bit (corresponding
+/// with as bit mask of `1 << (n % WORD_SIZE)`. `WORD_SIZE` is `mem::size_of::<usize>()`.
 ///
 /// # Serialization
 ///
-/// By default `BigEnumSet`s are serialized as `[u8; N]`, where N is smallest such that the array
-/// can fit all bits that are part of the underlying enum.
+/// When the `serde` feature is enabled, [`BigEnumSet`]s can be serialized and deserialized using
+/// the [`serde`] crate. The exact serialization format can be controlled with additional attributes
+/// on the enum type. These attributes are valid regardless of whether the `serde` feature
+/// is enabled.
 ///
-/// Unknown bits are ignored, and are simply dropped. To override this behavior, you can add a
-/// `#[big_enum_set(serialize_deny_unknown)]` annotation to your enum.
+/// By default [`BigEnumSet`]s are serialized as `[u8; N]`, where N is smallest such that the array
+/// can fit all bits that are part of the underlying enum. An enum with discriminant `n` is serialized
+/// as `n % 8`th least significant bit in the `n / 8` byte. You can add a
+/// `#[big_enum_set(serialize_bytes = N)]` attribute to your enum to control the number of bytes
+/// in the serialization. This can be important for avoiding unintentional breaking changes when
+/// `BigEnumSet`s are serialized with formats like [`bincode`].
 ///
-/// You can add a `#[big_enum_set(serialize_bytes = "N")]` annotation to your enum to manually set
-/// the number of bytes the `BigEnumSet` is serialized as. This can be used to avoid breaking changes in
-/// certain serialization formats (such as `bincode`).
+/// By default, unknown bits are ignored and silently removed from the bitset. To override this
+/// behavior, you can add a `#[big_enum_set(serialize_deny_unknown)]` attribute. This will cause
+/// deserialization to fail if an invalid bit is set.
 ///
-/// In addition, the `#[big_enum_set(serialize_as_list)]` annotation causes the `BigEnumSet` to be
+/// In addition, the `#[big_enum_set(serialize_as_list)]` attribute causes the [`BigEnumSet`] to be
 /// instead serialized as a list of enum variants. This requires your enum type implement
-/// [`Serialize`] and [`Deserialize`].
+/// [`Serialize`] and [`Deserialize`]. Note that this is a breaking change.
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct BigEnumSet<T: BigEnumSetType> {
     #[doc(hidden)]
@@ -403,6 +417,7 @@ impl<T: BigEnumSetType> IntoIterator for BigEnumSet<T> {
     }
 }
 
+/// Helper macro for implementing binary operators between `BigEnumSet`s.
 macro_rules! impl_op {
     ($op_trait:ident, $op_method:ident, $func:ident) => {
         impl<T: BigEnumSetType> $op_trait<BigEnumSet<T>> for BigEnumSet<T> {
@@ -442,6 +457,7 @@ impl_op!(BitAnd, bitand, intersection);
 impl_op!(Sub, sub, difference);
 impl_op!(BitXor, bitxor, symmetrical_difference);
 
+/// Helper macro for implementing binary operators between `BigEnumSet` and an enum.
 macro_rules! impl_op_enum {
     ($op_trait:ident, $op_method:ident, $func:ident) => {
         impl<T: BigEnumSetType> $op_trait<T> for BigEnumSet<T> {
@@ -466,6 +482,7 @@ impl_op_enum!(BitAnd, bitand, intersection_enum);
 impl_op_enum!(Sub, sub, difference_enum);
 impl_op_enum!(BitXor, bitxor, symmetrical_difference_enum);
 
+/// Helper macro for implementing binary assignment operators between `BigEnumSet`s.
 macro_rules! impl_assign_op {
     ($op_trait:ident, $op_method:ident, $func:ident) => {
         impl<T: BigEnumSetType> $op_trait<BigEnumSet<T>> for BigEnumSet<T> {
@@ -485,6 +502,7 @@ impl_assign_op!(BitAndAssign, bitand_assign, intersection);
 impl_assign_op!(SubAssign, sub_assign, difference);
 impl_assign_op!(BitXorAssign, bitxor_assign, symmetrical_difference);
 
+/// Helper macro for implementing binary assignment operators between `BigEnumSet` and an enum.
 macro_rules! impl_assign_op_enum {
     ($op_trait:ident, $op_method:ident, $func:ident) => {
         impl<T: BigEnumSetType> $op_trait<T> for BigEnumSet<T> {
@@ -632,7 +650,7 @@ impl<T: BigEnumSetType> FromIterator<T> for BigEnumSet<T> {
     }
 }
 
-/// Creates a BigEnumSet literal, which can be used in const contexts.
+/// Creates a [`BigEnumSet`] literal, which can be used in const contexts.
 ///
 /// The syntax used is `big_enum_set!(Type::A | Type::B | Type::C)`. Each variant must be of the same
 /// type, or a error will occur at compile-time.

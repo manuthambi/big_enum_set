@@ -13,17 +13,28 @@ pub use serde2 as serde;
 
 /// The actual members of BigEnumSetType. Put here to avoid polluting global namespaces.
 pub unsafe trait BigEnumSetTypePrivate {
+    /// The array of type `[usize; N]` used to store the bitset.
     type Repr: AsMut<[usize]> + AsRef<[usize]> + Copy + Clone + Hash + PartialEq + Eq + PartialOrd + Ord;
-    const REPR_LEN: usize; // Length of the array
+    /// Length of `Self::Repr`
+    const REPR_LEN: usize;
+    /// Array of type `Self::Repr` with all 0s.
     const REPR_NONE: Self::Repr;
+    /// Array of type `Self::Repr` with 1s in all valid bits, and 0s otherwise.
     const REPR_ALL: Self::Repr;
 
+    /// Converts an enum of this type into its bit position.
     fn enum_into_u16(self) -> u16;
+    /// Converts a bit position into an enum value.
     unsafe fn enum_from_u16(val: u16) -> Self;
 
+    /// Serializes the `BigEnumSet`.
+    ///
+    /// This and `deserialize` are part of the `BigEnumSetTypePrivate` trait so the procedural derive
+    /// can control how `BigEnumSet` is serialized.
     #[cfg(feature = "serde")]
     fn serialize<S: serde::Serializer>(set: &BigEnumSet<Self>, ser: S) -> Result<S::Ok, S::Error>
     where Self: BigEnumSetType;
+    /// Deserializes the `BigEnumSet`.
     #[cfg(feature = "serde")]
     fn deserialize<'de, D: serde::Deserializer<'de>>(de: D) -> Result<BigEnumSet<Self>, D::Error>
     where Self: BigEnumSetType;

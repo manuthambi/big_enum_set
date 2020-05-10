@@ -14,6 +14,7 @@ use core::convert::TryInto;
 use core::{u16, u32, u64};
 use std::collections::HashSet;
 
+/// Helper macro for emitting compile errors.
 macro_rules! bail {
     ($span:expr, $msg:expr) => {
         return Err(Error::new($span, $msg));
@@ -23,6 +24,7 @@ macro_rules! bail {
     };
 }
 
+/// Generates the actual `BigEnumSetTypePrivate` and other associated trait impls.
 fn enum_set_type_impl(
     name: &Ident,
     variants: &[Variant],
@@ -191,6 +193,7 @@ fn enum_set_type_impl(
     Ok(result)
 }
 
+/// Generates the array initializer expression for `BigEnumSetTypePrivate::REPR_ALL`
 fn repr_all(variants: &[Variant], max_discriminant: u16) -> Result<TokenStream> {
     use bit_vec::{BitVec, BitBlock};
 
@@ -229,6 +232,7 @@ fn repr_all(variants: &[Variant], max_discriminant: u16) -> Result<TokenStream> 
     }})
 }
 
+/// Generates the body of `enum_from_u16` function using a `transmute`.
 #[allow(dead_code)]
 fn from_impl_transmute(name: &Ident) -> TokenStream {
     let const_field = ["IS_U8", "IS_U16", "IS_U32", "IS_U64", "IS_U128"]
@@ -249,6 +253,7 @@ fn from_impl_transmute(name: &Ident) -> TokenStream {
     }
 }
 
+/// Generates the body of `enum_from_u16` function using a `match` expression.
 #[allow(dead_code)]
 fn from_impl_match(variants: &[Variant]) -> TokenStream {
     let variant_name = variants.iter().map(|v| &v.name).collect::<Vec<_>>();
@@ -265,6 +270,7 @@ fn from_impl_match(variants: &[Variant]) -> TokenStream {
     }
 }
 
+/// Decodes the custom attributes for `BigEnumSetType` derive.
 #[derive(FromDeriveInput, Default)]
 #[darling(attributes(big_enum_set), default)]
 struct EnumsetAttrs {
@@ -275,16 +281,18 @@ struct EnumsetAttrs {
     serialize_bytes: Option<usize>,
 }
 
-// We put a limit, to avoid accidentally creating sets which use up large amounts of memory
-// if one of the discriminants is large. This has to be <= u16::MAX, because we use u16
-// to hold the bit positions in BigEnumSet.
+/// We put a limit, to avoid accidentally creating sets which use up large amounts of memory
+/// if one of the discriminants is large. We require `MAX_DISCRIMINANT <= u16::MAX`, because `u16`
+/// is used to hold the bit positions in `BigEnumSet`.
 const MAX_DISCRIMINANT: u32 = u16::MAX as u32;
 
+/// Stores information about an enum variant.
 struct Variant {
     name: Ident,
     discriminant: u16,
 }
 
+/// Parse the input and generate `BigEnumSetTypePrivate` and other associated trait impls.
 fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
     let data = if let Data::Enum(data) = &input.data {
         data
@@ -343,8 +351,9 @@ fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
     enum_set_type_impl(&input.ident, &variants, max_discriminant, attrs)
 }
 
+/// Validate the variants by checking for duplicates etc. These checks are probably
+/// not required, because Rust checks them anyways.
 fn validate(variants: &[Variant]) -> Result<()> {
-    // These checks are probably not required, because Rust checks them anyways.
     let mut seen_names = HashSet::new();
     let mut seen_discriminants = HashSet::new();
     for v in variants.iter() {
@@ -358,7 +367,8 @@ fn validate(variants: &[Variant]) -> Result<()> {
     Ok(())
 }
 
-/// Procedural derive generating `big_enum_set::BigEnumSetType` implementation.
+/// Procedural derive generating impls for [`BigEnumSetType`](../big_enum_set/trait.BigEnumSetType.html)
+/// and associated traits.
 ///
 /// # Examples
 ///
@@ -375,13 +385,13 @@ fn validate(variants: &[Variant]) -> Result<()> {
 /// The derivation may be customized by the following attributes.
 /// * Use `#[big_enum_set(no_ops)]` to disable automatically implementing
 ///   [`Sub`], [`BitAnd`], [`BitOr`], [`BitXor`], [`Not`].
-/// * With serde, use `#[big_enum_set(serialize_as_list)]` to serialize [`BigEnumSet`]
+/// * With `serde`, use `#[big_enum_set(serialize_as_list)]` to serialize [`BigEnumSet`]
 ///   as list of elements instead of a bitset.
-/// * With serde, use `#[big_enum_set(serialize_deny_unknown)]` to generate an
+/// * With `serde`, use `#[big_enum_set(serialize_deny_unknown)]` to generate an
 ///   error during derserialization of [`BigEnumSet`] for an unknown variant of the enum.
-/// * With serde, use `#[big_enum_set(serialize_bytes=N)]` to serialize [`BigEnumSet`]
-///   to N bytes, rather than the minimum number of bytes needed to store the bitset.
-///   N >= number of variants / 8.
+/// * With `serde`, use `#[big_enum_set(serialize_bytes=N)]` to serialize [`BigEnumSet`]
+///   to `N` bytes, rather than the minimum number of bytes needed to store the bitset.
+///   In other words, `N >= V / 8 + 1`, where `V` is the largest discriminant.
 #[proc_macro_derive(BigEnumSetType, attributes(big_enum_set))]
 pub fn derive_big_enum_set_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: DeriveInput = parse_macro_input!(input);
