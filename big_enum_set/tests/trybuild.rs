@@ -1,3 +1,4 @@
+#[rustversion::any(stable, beta)]
 #[test]
 fn ui() {
     let t = trybuild::TestCases::new();
