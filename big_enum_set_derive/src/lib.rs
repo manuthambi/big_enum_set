@@ -10,6 +10,7 @@ use syn::spanned::Spanned;
 use syn::*;
 use syn::{Error, Result};
 
+use core::convert::TryInto;
 use core::{u16, u32, u64};
 use std::collections::HashSet;
 
@@ -277,7 +278,7 @@ struct EnumsetAttrs {
 // We put a limit, to avoid accidentally creating sets which use up large amounts of memory
 // if one of the discriminants is large. This has to be <= u16::MAX, because we use u16
 // to hold the bit positions in BigEnumSet.
-const MAX_DISCRIMINANT: u16 = u16::MAX;
+const MAX_DISCRIMINANT: u32 = u16::MAX as u32;
 
 struct Variant {
     name: Ident,
@@ -296,34 +297,32 @@ fn derive_big_enum_set_type_impl(input: DeriveInput) -> Result<TokenStream> {
     }
 
     let mut variants = Vec::new();
-    let mut current_discriminant = 0_u16;
+    let mut current_discriminant = 0_u32; // use u32 instead of u16 to avoid overflow issues.
 
+    let extra_msg = format!("`#[derive(BigEnumSetType)]` only supports discriminants in the range `0 ..= {}`.", MAX_DISCRIMINANT);
     for variant in &data.variants {
         if let Fields::Unit = variant.fields {
             if let Some((_, expr)) = &variant.discriminant {
                 if let Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) = expr {
                     current_discriminant = match i.base10_parse::<u16>() {
-                        Ok(v) => v,
-                        Err(_e) => bail!(
-                            variant.span(),
-                            "Unparseable discriminant for variant (discriminants must be non-negative and fit in `u16`)."
-                        ),
+                        Ok(v) => u32::from(v),
+                        Err(_e) => bail!(variant.span(), "Unparseable discriminant. {}", extra_msg),
                     };
                     if current_discriminant > MAX_DISCRIMINANT {
-                        bail!(variant.span(), "`#[derive(BigEnumSetType)]` only supports enum discriminants up to {}.", MAX_DISCRIMINANT);
+                        bail!(variant.span(), "Discriminant too large. {}", extra_msg);
                     }
                 } else {
-                    bail!(variant.span(), "Unrecognized discriminant for variant.");
+                    bail!(variant.span(), "Unrecognized discriminant. {}", extra_msg);
                 }
             } else if current_discriminant > MAX_DISCRIMINANT {
-                bail!(variant.span(), "`#[derive(BigEnumSetType)]` only supports enums up to {} variants.", u32::from(MAX_DISCRIMINANT)+1);
+                bail!(variant.span(), "Discriminant too large. {}", extra_msg);
             }
 
-            variants.push(Variant { name: variant.ident.clone(), discriminant: current_discriminant });
+            variants.push(Variant { name: variant.ident.clone(), discriminant: current_discriminant.try_into().unwrap() });
 
             current_discriminant += 1;
         } else {
-            bail!(variant.span(), "`#[derive(BigEnumSetType)]` can only be used on fieldless enums.");
+            bail!(variant.span(), "`#[derive(BigEnumSetType)]` may only be used on fieldless enums.");
         }
     }
 
