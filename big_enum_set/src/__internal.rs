@@ -143,7 +143,7 @@ pub mod serde_impl {
     {
         use super::serde::ser::SerializeTuple;
         let words = set.__repr.as_ref();
-        debug_assert!(words.len() > 0);
+        debug_assert!(!words.is_empty());
         debug_assert!((words.len() - 1) * WORD_SIZE < n_bytes);
 
         let mut bytes_left = n_bytes;
@@ -202,7 +202,7 @@ pub mod serde_impl {
                     // Clear any invalid bits.
                     set.__repr.as_mut().iter_mut()
                         .zip(T::REPR_ALL.as_ref().iter())
-                        .for_each(|(w1, w2)| *w1 = *w1 & *w2);
+                        .for_each(|(w1, w2)| *w1 &= *w2);
                 }
                 Ok(set)
             }

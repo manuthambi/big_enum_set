@@ -25,7 +25,7 @@ macro_rules! bail {
 
 fn enum_set_type_impl(
     name: &Ident,
-    variants: &Vec<Variant>,
+    variants: &[Variant],
     max_discriminant: u16,
     attrs: EnumsetAttrs
 ) -> Result<TokenStream> {
