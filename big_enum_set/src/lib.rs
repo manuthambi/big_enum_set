@@ -1,9 +1,10 @@
 #![no_std]
 #![forbid(missing_docs)]
 
-//! A library for creating enum sets that are stored as compact bit sets. The code is based on
-//! the [`enumset`] crate, except that the backing store used is an array of `usize`. This enables
-//! use with enums with large number of variants. The API is very similar to that of `enumset`.
+//! A library for creating enum sets that are stored as compact bit sets. The code is
+//! based on the [`enumset`](http:://docs.rs/enumset) crate, except that the backing
+//! store used is an array of `usize`. This enables use with enums with large number
+//! of variants. The API is very similar to that of `enumset`.
 //!
 //! For serde support, enable the `serde` feature.
 //!
@@ -161,16 +162,16 @@ pub unsafe trait BigEnumSetType: Copy + Eq + crate::__internal::BigEnumSetTypePr
 /// # Serialization
 ///
 /// When the `serde` feature is enabled, [`BigEnumSet`]s can be serialized and deserialized using
-/// the [`serde`] crate. The exact serialization format can be controlled with additional attributes
-/// on the enum type. These attributes are valid regardless of whether the `serde` feature
-/// is enabled.
+/// the [`serde`](http://docs.rs/serde) crate. The exact serialization format can be controlled
+/// with additional attributes on the enum type. These attributes are valid regardless of
+/// whether the `serde` feature is enabled.
 ///
 /// By default [`BigEnumSet`]s are serialized as `[u8; N]`, where N is smallest such that the array
 /// can fit all bits that are part of the underlying enum. An enum with discriminant `n` is serialized
 /// as `n % 8`th least significant bit in the `n / 8` byte. You can add a
 /// `#[big_enum_set(serialize_bytes = N)]` attribute to your enum to control the number of bytes
 /// in the serialization. This can be important for avoiding unintentional breaking changes when
-/// `BigEnumSet`s are serialized with formats like [`bincode`].
+/// `BigEnumSet`s are serialized with formats like [`bincode`](https:://docs.rs/bincode).
 ///
 /// By default, unknown bits are ignored and silently removed from the bitset. To override this
 /// behavior, you can add a `#[big_enum_set(serialize_deny_unknown)]` attribute. This will cause
@@ -178,7 +179,7 @@ pub unsafe trait BigEnumSetType: Copy + Eq + crate::__internal::BigEnumSetTypePr
 ///
 /// In addition, the `#[big_enum_set(serialize_as_list)]` attribute causes the [`BigEnumSet`] to be
 /// instead serialized as a list of enum variants. This requires your enum type implement
-/// [`Serialize`] and [`Deserialize`]. Note that this is a breaking change.
+/// `Serialize` and `Deserialize`. Note that this is a breaking change.
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct BigEnumSet<T: BigEnumSetType> {
     #[doc(hidden)]
