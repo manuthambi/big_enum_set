@@ -1,4 +1,4 @@
-# Version 1.0.0 (Unreleased)
+# Version 0.2.0 (2020-05-10)
 
 ## Breaking changes
 * **[WARNING: Potential silent breaking change]** Changed `BigEnumSet::insert` to
