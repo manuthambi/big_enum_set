@@ -3,9 +3,8 @@
 extern crate proc_macro;
 
 use darling::*;
-use proc_macro2::{Literal, TokenStream};
+use proc_macro2::{Literal, TokenStream, Span};
 use quote::*;
-use syn::export::Span;
 use syn::spanned::Spanned;
 use syn::*;
 use syn::{Error, Result};
