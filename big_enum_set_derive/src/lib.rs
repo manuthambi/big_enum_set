@@ -3,7 +3,7 @@
 extern crate proc_macro;
 
 use darling::*;
-use proc_macro2::{Literal, TokenStream, Span};
+use proc_macro2::{Literal, Span, TokenStream};
 use quote::*;
 use syn::spanned::Spanned;
 use syn::*;
@@ -28,7 +28,7 @@ fn enum_set_type_impl(
     name: &Ident,
     variants: &[Variant],
     max_discriminant: u16,
-    attrs: EnumsetAttrs
+    attrs: EnumsetAttrs,
 ) -> Result<TokenStream> {
     let is_uninhabited = variants.is_empty();
     let is_zst = variants.len() == 1;
@@ -44,7 +44,7 @@ fn enum_set_type_impl(
             quote!(union_enum),
             quote!(intersection_enum),
             quote!(difference_enum_reverse),
-            quote!(symmetrical_difference_enum)
+            quote!(symmetrical_difference_enum),
         ];
         quote! {
             #(
@@ -194,7 +194,7 @@ fn enum_set_type_impl(
 
 /// Generates the array initializer expression for `BigEnumSetTypePrivate::REPR_ALL`
 fn repr_all(variants: &[Variant], max_discriminant: u16) -> Result<TokenStream> {
-    use bit_vec::{BitVec, BitBlock};
+    use bit_vec::{BitBlock, BitVec};
 
     if variants.is_empty() {
         return Ok(quote!([]));
@@ -366,7 +366,7 @@ fn validate(variants: &[Variant]) -> Result<()> {
     Ok(())
 }
 
-#[allow(unused_imports)]  // needed for doc comments.
+#[allow(unused_imports)] // needed for doc comments.
 use core::ops::{BitAnd, BitOr, BitXor, Not, Sub};
 
 /// Procedural derive generating impls for `big_enum_set::BigEnumSetType`

@@ -46,7 +46,6 @@ pub const WORD_MASK: u16 = WORD_BITS as u16 - 1;
 pub const WORD_SHIFT: u8 = WORD_BITS.trailing_zeros() as u8; // number of bits to shift to get word index.
 const_assert_eq!(word_bits_check; WORD_BITS.count_ones(), 1); // check power of 2
 
-
 // functions to help with implementing operators.
 pub(crate) fn union<T: BigEnumSetType>(this: &mut BigEnumSet<T>, other: &BigEnumSet<T>) {
     this.apply_op(other, |w1, w2| w1 | w2);
@@ -91,7 +90,6 @@ pub fn symmetrical_difference_enum<T: BigEnumSetType>(this: &mut BigEnumSet<T>, 
         this.insert(value);
     }
 }
-
 
 #[cfg(feature = "serde")]
 pub mod serde_impl {

@@ -476,7 +476,7 @@ macro_rules! impl_op_enum {
                 result
             }
         }
-    }
+    };
 }
 impl_op_enum!(BitOr, bitor, union_enum);
 impl_op_enum!(BitAnd, bitand, intersection_enum);
@@ -511,7 +511,7 @@ macro_rules! impl_assign_op_enum {
                 __internal::$func(self, value);
             }
         }
-    }
+    };
 }
 impl_assign_op_enum!(BitOrAssign, bitor_assign, union_enum);
 impl_assign_op_enum!(BitAndAssign, bitand_assign, intersection_enum);
@@ -531,7 +531,6 @@ impl<T: BigEnumSetType> Not for &BigEnumSet<T> {
         self.complement()
     }
 }
-
 
 impl<T: BigEnumSetType> From<T> for BigEnumSet<T> {
     fn from(t: T) -> Self {
@@ -639,7 +638,8 @@ impl<S, T> ExactSizeIterator for EnumSetIter<S, T>
 where
     S: Borrow<BigEnumSet<T>>,
     T: BigEnumSetType,
-{}
+{
+}
 
 impl<T: BigEnumSetType> Extend<T> for BigEnumSet<T> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
