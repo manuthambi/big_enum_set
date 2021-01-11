@@ -32,7 +32,7 @@ error: Too many variants for serialization into 1 bytes.
   --> $DIR/variants.rs:30:1
    |
 30 | #[big_enum_set(serialize_bytes = 1)]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   | ^
 
 error: `#[derive(BigEnumSetType)]` may only be used on enums
   --> $DIR/variants.rs:36:1
