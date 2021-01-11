@@ -1,6 +1,6 @@
 # Version 0.2.1 (2021-01-11)
-* Import Span from proc_macro2 instead of syn. This fixes a breakage with syn v1.0.58
-* Implemented ExactSizeIterator for EnumSetIter
+* Import `Span` from `proc_macro2` instead of `syn`. This fixes a breakage with `syn` v1.0.58
+* Implemented `ExactSizeIterator` for `EnumSetIter`
 
 # Version 0.2.0 (2020-05-10)
 
