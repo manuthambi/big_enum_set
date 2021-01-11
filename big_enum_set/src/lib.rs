@@ -635,6 +635,12 @@ where
     }
 }
 
+impl<S, T> ExactSizeIterator for EnumSetIter<S, T>
+where
+    S: Borrow<BigEnumSet<T>>,
+    T: BigEnumSetType,
+{}
+
 impl<T: BigEnumSetType> Extend<T> for BigEnumSet<T> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         iter.into_iter().for_each(|v| {
