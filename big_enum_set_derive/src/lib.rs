@@ -16,10 +16,10 @@ use std::collections::HashSet;
 /// Helper macro for emitting compile errors.
 macro_rules! bail {
     ($span:expr, $msg:expr) => {
-        return Err(Error::new($span, $msg));
+        return Err(Error::new($span, $msg))
     };
     ($span:expr, $fmt:expr, $($arg:tt)*) => {
-        return Err(Error::new($span, format!($fmt, $($arg)*)));
+        return Err(Error::new($span, format!($fmt, $($arg)*)))
     };
 }
 

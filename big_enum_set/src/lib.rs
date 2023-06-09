@@ -83,7 +83,7 @@ use core::borrow::Borrow;
 use core::cmp::Ordering;
 use core::fmt::{self, Debug};
 use core::hash::{Hash, Hasher};
-use core::iter::FromIterator;
+use core::iter::{FromIterator, Sum};
 use core::marker::PhantomData;
 use core::mem;
 use core::ops::*;
@@ -417,6 +417,44 @@ impl<T: BigEnumSetType> IntoIterator for BigEnumSet<T> {
         EnumSetIter(self, 0, PhantomData)
     }
 }
+
+impl <T: BigEnumSetType> Sum for BigEnumSet<T> {
+    fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
+        let mut a = Self::empty();
+        for v in iter {
+            a |= v
+        }
+        a
+    }
+}
+impl <'a, T: 'a + BigEnumSetType> Sum<&'a BigEnumSet<T>> for BigEnumSet<T> {
+    fn sum<I: Iterator<Item=&'a Self>>(iter: I) -> Self {
+        let mut a = Self::empty();
+        for v in iter {
+            a |= *v
+        }
+        a
+    }
+}
+impl <T: BigEnumSetType> Sum<T> for BigEnumSet<T> {
+    fn sum<I: Iterator<Item=T>>(iter: I) -> Self {
+        let mut a = Self::empty();
+        for v in iter {
+            a |= v
+        }
+        a
+    }
+}
+impl <'a, T: 'a + BigEnumSetType> Sum<&'a T> for BigEnumSet<T> {
+    fn sum<I: Iterator<Item=&'a T>>(iter: I) -> Self {
+        let mut a = Self::empty();
+        for v in iter {
+            a |= *v
+        }
+        a
+    }
+}
+
 
 /// Helper macro for implementing binary operators between `BigEnumSet`s.
 macro_rules! impl_op {
