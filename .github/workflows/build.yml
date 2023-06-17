@@ -27,3 +27,4 @@ jobs:
       with:
         command: test
         args: ${{ matrix.args }}
+        toolchain: ${{ matrix.rustver }}
