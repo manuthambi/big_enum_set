@@ -245,6 +245,17 @@ macro_rules! test_enum {
         }
 
         #[test]
+        fn iter_ordering_test() {
+            let set_a = $e::A | $e::B | $e::E;
+            let vec_a: Vec<_> = set_a.iter().collect();
+            assert_eq!(vec_a, &[$e::A, $e::B, $e::E]);
+
+            let set_a = $e::B | $e::D | $e::G;
+            let vec_a: Vec<_> = set_a.iter().collect();
+            assert_eq!(vec_a, &[$e::B, $e::D, $e::G]);
+        }
+
+        #[test]
         fn test_iter_size_hint() {
             fn check_iter_size_hint(set: BigEnumSet<$e>) {
                 let count = set.len();
