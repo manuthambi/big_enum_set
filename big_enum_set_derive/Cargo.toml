@@ -1,6 +1,6 @@
 [package]
 name = "big_enum_set_derive"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Manu Thambi <hellomanu@gmail.com>", "Alissa Rao <lymia@lymiahugs.com>"]
 edition = "2021"
 

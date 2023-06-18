@@ -1,3 +1,8 @@
+# Version 0.3.0 (2023-06-18)
+* Minimum required Rust version is now 1.64+, due to updates in dependencies.
+* Implemented `core::iter::Sum` for `BigEnumSet<T>`.
+* Added `README.md`, and the license files to the crate distribution.
+
 # Version 0.2.1 (2021-01-11)
 * Import `Span` from `proc_macro2` instead of `syn`. This fixes a breakage with `syn` v1.0.58
 * Implemented `ExactSizeIterator` for `EnumSetIter`
