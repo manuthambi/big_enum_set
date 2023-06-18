@@ -1,5 +1,6 @@
 #![no_std]
 #![forbid(missing_docs)]
+#![allow(clippy::missing_safety_doc)] // The safety requirement is "use the procedural derive".
 
 //! A library for creating enum sets that are stored as compact bit sets. The code is
 //! based on the [`enumset`](http:://docs.rs/enumset) crate, except that the backing
@@ -340,32 +341,32 @@ impl<T: BigEnumSetType> BigEnumSet<T> {
     }
     /// Returns a set containing all elements present in either set.
     pub fn union<O: Borrow<Self>>(&self, other: O) -> Self {
-        let mut result = self.clone();
+        let mut result = *self;
         __internal::union(&mut result, other.borrow());
         result
     }
     /// Returns a set containing all elements present in both sets.
     pub fn intersection<O: Borrow<Self>>(&self, other: O) -> Self {
-        let mut result = self.clone();
+        let mut result = *self;
         __internal::intersection(&mut result, other.borrow());
         result
     }
     /// Returns a set containing all elements present in `self` but not in `other`.
     pub fn difference<O: Borrow<Self>>(&self, other: O) -> Self {
-        let mut result = self.clone();
+        let mut result = *self;
         __internal::difference(&mut result, other.borrow());
         result
     }
     /// Returns a set containing all elements present in either `self` or `other`, but is not present
     /// in both.
     pub fn symmetrical_difference<O: Borrow<Self>>(&self, other: O) -> Self {
-        let mut result = self.clone();
+        let mut result = *self;
         __internal::symmetrical_difference(&mut result, other.borrow());
         result
     }
     /// Returns a set containing all enum variants not present in this set.
     pub fn complement(&self) -> Self {
-        let mut result = self.clone();
+        let mut result = *self;
         __internal::complement(&mut result);
         result
     }

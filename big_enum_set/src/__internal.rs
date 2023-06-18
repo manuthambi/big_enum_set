@@ -42,7 +42,7 @@ pub unsafe trait BigEnumSetTypePrivate {
 
 // size of usize in bits
 pub const WORD_BITS: u16 = mem::size_of::<usize>() as u16 * 8;
-pub const WORD_MASK: u16 = WORD_BITS as u16 - 1;
+pub const WORD_MASK: u16 = WORD_BITS - 1;
 pub const WORD_SHIFT: u8 = WORD_BITS.trailing_zeros() as u8; // number of bits to shift to get word index.
 const_assert_eq!(word_bits_check; WORD_BITS.count_ones(), 1); // check power of 2
 
