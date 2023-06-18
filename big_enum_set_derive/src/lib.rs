@@ -369,31 +369,6 @@ fn validate(variants: &[Variant]) -> Result<()> {
 #[allow(unused_imports)] // needed for doc comments.
 use core::ops::{BitAnd, BitOr, BitXor, Not, Sub};
 
-/// Procedural derive generating impls for `big_enum_set::BigEnumSetType`
-/// and associated traits.
-///
-/// # Examples
-///
-/// ```
-/// use big_enum_set::BigEnumSetType;
-///
-/// #[derive(BigEnumSetType)]
-/// #[big_enum_set(serialize_bytes=22)]
-/// pub enum Enum {
-///    A, B, C, D, E, F, G,
-/// }
-/// ```
-///
-/// The derivation may be customized by the following attributes.
-/// * Use `#[big_enum_set(no_ops)]` to disable automatically implementing
-///   [`Sub`], [`BitAnd`], [`BitOr`], [`BitXor`], [`Not`].
-/// * With `serde`, use `#[big_enum_set(serialize_as_list)]` to serialize `BigEnumSet`
-///   as list of elements instead of a bitset.
-/// * With `serde`, use `#[big_enum_set(serialize_deny_unknown)]` to generate an
-///   error during derserialization of `BigEnumSet` for an unknown variant of the enum.
-/// * With `serde`, use `#[big_enum_set(serialize_bytes=N)]` to serialize `BigEnumSet`
-///   to `N` bytes, rather than the minimum number of bytes needed to store the bitset.
-///   In other words, `N >= V / 8 + 1`, where `V` is the largest discriminant.
 #[proc_macro_derive(BigEnumSetType, attributes(big_enum_set))]
 pub fn derive_big_enum_set_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: DeriveInput = parse_macro_input!(input);
