@@ -18,11 +18,11 @@ proc-macro = true
 serde = []
 
 [dependencies]
-darling = "0.10.1"
-syn = "1.0.5"
+darling = "0.20"
+syn = "2"
 quote = "1.0.2"
 proc-macro2 = "1.0.4"
-bit-vec = "0.5.1"
+bit-vec = "0.6"
 
 [dev-dependencies]
 big_enum_set = { version = "0.2.1", path = "../big_enum_set" }

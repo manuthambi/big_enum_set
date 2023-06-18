@@ -44,7 +44,7 @@ pub unsafe trait BigEnumSetTypePrivate {
 pub const WORD_BITS: u16 = mem::size_of::<usize>() as u16 * 8;
 pub const WORD_MASK: u16 = WORD_BITS - 1;
 pub const WORD_SHIFT: u8 = WORD_BITS.trailing_zeros() as u8; // number of bits to shift to get word index.
-const_assert_eq!(word_bits_check; WORD_BITS.count_ones(), 1); // check power of 2
+const_assert_eq!(WORD_BITS.count_ones(), 1); // check power of 2
 
 // functions to help with implementing operators.
 pub(crate) fn union<T: BigEnumSetType>(this: &mut BigEnumSet<T>, other: &BigEnumSet<T>) {
