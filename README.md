@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/big_enum_set.svg)](https://crates.io/crates/big_enum_set)
 [![Build Status](https://github.com/manuthambi/big_enum_set/actions/workflows/build.yml/badge.svg)](https://github.com/manuthambi/big_enum_set/actions/workflows/build.yml)
-![Requires rustc 1.60+](https://img.shields.io/badge/rustc-1.60+-blue.svg)
+![Requires rustc 1.64+](https://img.shields.io/badge/rustc-1.64+-blue.svg)
 [![API reference](https://docs.rs/big_enum_set/badge.svg)](https://docs.rs/big_enum_set/)
 
 A library for creating sets of enums with a large number of variants. The set is implemented

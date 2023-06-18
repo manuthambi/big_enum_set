@@ -13,7 +13,7 @@ jobs:
   build_test:
     strategy:
       matrix:
-        rustver: ["stable", "beta", "nightly", "1.60.0"]
+        rustver: ["stable", "beta", "nightly", "1.64.0"]
         args: ["", "--features serde", "--release --all-features"]
 
     runs-on: ubuntu-latest
