@@ -2,7 +2,7 @@
 name = "big_enum_set_derive"
 version = "0.2.1"
 authors = ["Manu Thambi <hellomanu@gmail.com>", "Alissa Rao <lymia@lymiahugs.com>"]
-edition = "2018"
+edition = "2021"
 
 description = "An internal helper crate for big_enum_set. Not public API."
 

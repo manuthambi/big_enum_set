@@ -2,7 +2,7 @@
 name = "big_enum_set"
 version = "0.2.1"
 authors = ["Manu Thambi <hellomanu@gmail.com>", "Alissa Rao <lymia@lymiahugs.com>"]
-edition = "2018"
+edition = "2021"
 
 description = "A library for creating sets of enums with a large number of variants."
 keywords = ["enum", "bitset", "set", "enumset"]
